@@ -1,0 +1,11 @@
+node_modules/
+.next/
+.env.local
+.env
+deployment.json
+contracts/managed/
+*.log
+logs/
+dist/
+.DS_Store
+night-fun.db

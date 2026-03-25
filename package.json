@@ -1,0 +1,49 @@
+{
+  "name": "night-fun",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Midnight memecoin launchpad — privacy-first bonding curve on Midnight Preprod/Mainnet",
+  "scripts": {
+    "dev":                "next dev",
+    "build":              "next build",
+    "start":              "next start",
+    "lint":               "next lint",
+    "type-check":         "tsc --noEmit",
+
+    "start-proof-server": "docker run -p 6300:6300 midnightntwrk/proof-server:7.0.0 -- midnight-proof-server -v",
+
+    "compile-contracts":  "compact compile contracts/bonding_curve.compact contracts/managed/bonding_curve && compact compile contracts/vesting.compact contracts/managed/vesting",
+
+    "deploy":             "tsx scripts/deploy.ts",
+    "cli":                "tsx scripts/cli.ts"
+  },
+  "dependencies": {
+    "next":    "15.2.0",
+    "react":   "19.0.0",
+    "react-dom": "19.0.0",
+
+    "@midnight-ntwrk/dapp-connector-api":              "4.0.0",
+    "@midnight-ntwrk/midnight-js-network-id":          "3.1.0",
+    "@midnight-ntwrk/midnight-js-utils":               "3.1.0",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "3.1.0",
+
+    "graphql-ws":     "^5.16.0",
+    "graphql":        "^16.8.0",
+
+    "lightweight-charts": "^4.2.0",
+    "pinata":             "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node":       "^22",
+    "@types/react":      "^19",
+    "@types/react-dom":  "^19",
+    "typescript":        "^5",
+    "eslint":            "^9",
+    "eslint-config-next": "15.2.0",
+    "tsx":               "^4.7.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
