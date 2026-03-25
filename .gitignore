@@ -6,6 +6,6 @@ deployment.json
 contracts/managed/
 *.log
 logs/
-dist/
 .DS_Store
 night-fun.db
+.vercel
