@@ -161,9 +161,10 @@ function deriveShieldedKeysFromSeed(seed) {
     return r.keys;
   })();
   const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
+  const toHex = (v) => v instanceof Uint8Array ? Buffer.from(v).toString('hex') : String(v);
   return {
-    getCoinPublicKey: () => shieldedSK.coinPublicKey,
-    getEncryptionPublicKey: () => shieldedSK.encryptionPublicKey,
+    getCoinPublicKey: () => toHex(shieldedSK.coinPublicKey),
+    getEncryptionPublicKey: () => toHex(shieldedSK.encryptionPublicKey),
   };
 }
 const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
