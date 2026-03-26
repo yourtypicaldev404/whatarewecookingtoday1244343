@@ -9,6 +9,7 @@ import {
   deployContract,
   findDeployedContract,
   createUnprovenCallTx,
+  createUnprovenDeployTx,
   getPublicStates,
 } from '@midnight-ntwrk/midnight-js-contracts';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
