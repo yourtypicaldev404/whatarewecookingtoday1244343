@@ -290,7 +290,7 @@ app.get('/health', (_, res) => {
     status: 'ok',
     networkId: NETWORK_ID,
     proofServer: PROOF,
-    v: 9,
+    v: 10,
     debug_cpk_type: typeof cpk,
     debug_cpk_ctor: cpk?.constructor?.name ?? 'null',
     debug_cpk_len: cpk?.length ?? 'n/a',
@@ -318,7 +318,8 @@ app.post('/deploy', async (req, res) => {
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
     );
-    const signingKey = new Uint8Array(globalThis.crypto.getRandomValues(new Uint8Array(32)));
+    // signingKey must be a hex string — the SDK schema validates it as ConstrainedPlainHex
+    const signingKey = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('hex');
     const unprovenData = await createUnprovenDeployTx(
       { zkConfigProvider: zkConfig, walletProvider: TRADE_WALLET_PROVIDER },
       { compiledContract, initialPrivateState: {}, args: [creatorSk, treasurySk], signingKey },
