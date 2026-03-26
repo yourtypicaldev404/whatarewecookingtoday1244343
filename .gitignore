@@ -10,3 +10,4 @@ logs/
 night-fun.db
 .vercel
 token-registry.json
+.env*.local
