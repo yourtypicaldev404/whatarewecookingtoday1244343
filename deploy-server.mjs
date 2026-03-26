@@ -307,6 +307,9 @@ app.get('/health', (_, res) => {
 app.post('/deploy', async (req, res) => {
   console.log('Building unproven deploy tx for:', req.body.name, req.body.ticker);
   try {
+    const _cpk = TRADE_WALLET_PROVIDER.getCoinPublicKey();
+    const _epk = TRADE_WALLET_PROVIDER.getEncryptionPublicKey();
+    console.log('[deploy] cpk type:', typeof _cpk, 'len:', _cpk?.length, 'epk type:', typeof _epk, 'len:', _epk?.length);
     const zkConfig = new NodeZkConfigProvider(ZK_PATH);
     const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
@@ -324,8 +327,8 @@ app.post('/deploy', async (req, res) => {
     console.log('Unproven deploy tx built, contractAddress:', unprovenData.public.contractAddress);
     res.json({ unprovenTxHex, contractAddress: unprovenData.public.contractAddress });
   } catch (err) {
-    console.error('Deploy build failed:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('Deploy build failed:', err.message, '\n', err.stack);
+    res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
   }
 });
 
