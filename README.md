@@ -91,16 +91,25 @@ vercel --prod
 npm install
 ```
 
-**Local site + local proof** (three terminals, or compose “full” profile for proof+deploy in Docker):
+**Local site + local proof** (single command after `.env.local` exists):
 
 ```bash
-cp .env.local.example .env.local   # once — sets DEPLOY_SERVER_URL, PROOF_SERVER_URL, NEXT_PUBLIC_PROOF_SERVER
-docker compose up -d                 # proof on :6300
-npm run deploy-server                # reads .env.local; default port 3001
-npm run dev                          # Next on :3000 → /api/* proxies to localhost:3001
+test -f .env.local || cp .env.local.example .env.local
+npm run dev:local
 ```
 
-Open `http://localhost:3000`. In **Lace** → Midnight → Prover server → `http://localhost:6300`.
+This runs `docker compose up -d`, then **deploy-server** + **Next dev** together. Open `http://localhost:3000`. In **Lace** → Midnight → Prover server → `http://localhost:6300`.
+
+**Manual / three terminals** (same result):
+
+```bash
+cp .env.local.example .env.local   # once
+docker compose up -d                 # proof on :6300
+npm run deploy-server              # reads .env.local; port 3001
+npm run dev                        # Next on :3000
+```
+
+Production (Vercel + Railway) env vars: see **`DEPLOYMENT.md`**.
 
 Run frontend only (e.g. production deploy URL already in env):
 
