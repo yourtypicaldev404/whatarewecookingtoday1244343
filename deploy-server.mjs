@@ -24,17 +24,54 @@ import * as ledger from '@midnight-ntwrk/ledger-v8';
 import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 globalThis.WebSocket = WebSocket;
-setNetworkId('preprod');
-// Also set for midnight-js-contracts nested copy
-import('/tmp/set-network.mjs').then(m => m.setNetworkId('preprod')).catch(() => {});
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ZK_PATH   = path.resolve(__dirname, './contracts/managed/bonding_curve');
 
-const INDEXER   = 'https://indexer.preprod.midnight.network/api/v3/graphql';
-const INDEXERWS = 'wss://indexer.preprod.midnight.network/api/v3/graphql/ws';
-const NODE      = 'https://rpc.preprod.midnight.network';
-const PROOF     = process.env.PROOF_SERVER_URL ?? 'http://localhost:6300';
+/** Align with Lace / NEXT_PUBLIC_* — default Preview so chain state matches a Preview-configured wallet. */
+const NETWORK_DEFAULTS = {
+  preview: {
+    INDEXER: 'https://indexer.preview.midnight.network/api/v4/graphql',
+    INDEXERWS: 'wss://indexer.preview.midnight.network/api/v4/graphql/ws',
+    NODE: 'https://rpc.preview.midnight.network',
+  },
+  preprod: {
+    INDEXER: 'https://indexer.preprod.midnight.network/api/v3/graphql',
+    INDEXERWS: 'wss://indexer.preprod.midnight.network/api/v3/graphql/ws',
+    NODE: 'https://rpc.preprod.midnight.network',
+  },
+};
+
+const NETWORK_ID = (process.env.NETWORK_ID ?? process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preview').toLowerCase();
+const defaults = NETWORK_DEFAULTS[NETWORK_ID] ?? null;
+
+const INDEXER =
+  process.env.INDEXER_HTTP ??
+  process.env.NEXT_PUBLIC_INDEXER_HTTP ??
+  defaults?.INDEXER;
+const INDEXERWS =
+  process.env.INDEXER_WS ??
+  process.env.NEXT_PUBLIC_INDEXER_WS ??
+  defaults?.INDEXERWS;
+const NODE =
+  process.env.NODE_RPC ??
+  process.env.NEXT_PUBLIC_MIDNIGHT_NODE_URL ??
+  defaults?.NODE;
+
+if (!INDEXER || !INDEXERWS || !NODE) {
+  console.error(
+    `[deploy-server] Missing indexer/node URLs for NETWORK_ID=${NETWORK_ID}. ` +
+      'Set INDEXER_HTTP, INDEXER_WS, NODE_RPC (or use network preview|preprod).',
+  );
+  process.exit(1);
+}
+
+setNetworkId(NETWORK_ID);
+
+const PROOF =
+  process.env.PROOF_SERVER_URL ??
+  process.env.NEXT_PUBLIC_PROOF_SERVER ??
+  'http://localhost:6300';
 const SEED      = process.env.DEPLOYER_SEED ?? '971da3750a45a3812c732f8b70ccb9d8c7e7b55e65700b87f5346fc1c7d1a952';
 const TREASURY  = process.env.TREASURY_SEED ?? SEED;
 const PORT      = process.env.PORT ?? process.env.DEPLOY_SERVER_PORT ?? 3001;
@@ -57,11 +94,11 @@ async function buildWallet(seed) {
   const keys       = deriveKeys(seed);
   const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
   const dustSK     = ledger.DustSecretKey.fromSeed(keys[Roles.Dust]);
-  const keystore   = createKeystore(keys[Roles.NightExternal], 'preprod');
+  const keystore   = createKeystore(keys[Roles.NightExternal], NETWORK_ID);
   const dustParams = ledger.LedgerParameters.initialParameters().dust;
 
   const config = {
-    networkId: 'preprod',
+    networkId: NETWORK_ID,
     indexerClientConnection: { indexerHttpUrl: INDEXER, indexerWsUrl: INDEXERWS },
     provingServerUrl: new URL(PROOF),
     relayURL: new URL(NODE.replace(/^http/, 'ws')),
@@ -253,5 +290,6 @@ app.post('/trade/build', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Night.fun deploy server running on port ${PORT}`);
+  console.log(`Network: ${NETWORK_ID} · indexer ${INDEXER}`);
   console.log(`Proof server: ${PROOF}`);
 });

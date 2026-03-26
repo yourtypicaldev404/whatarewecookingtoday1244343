@@ -232,7 +232,9 @@ export default function TokenPage() {
               {txResult && (
                 <div style={{ background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.3)', borderRadius:8, padding:'8px 12px', marginBottom:10, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--neon-green)' }}>
                   Submitted through Lace.<br/>
-                  <span style={{ color:'var(--text-muted)' }}>Check your wallet activity for the on-chain tx.</span>
+                  <span style={{ color:'var(--text-secondary)', wordBreak:'break-all' }} title="Transaction id">{txResult.txId}</span>
+                  <br/>
+                  <span style={{ color:'var(--text-muted)' }}>Confirm status in Lace activity if needed.</span>
                 </div>
               )}
 
