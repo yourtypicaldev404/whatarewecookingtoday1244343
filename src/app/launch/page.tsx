@@ -23,11 +23,11 @@ export default function LaunchPage() {
       if (!wallets.length) { alert("No Midnight wallet found"); return; }
       const api = await wallets[0].connect("preprod");
       const config = await api.getConfiguration();
-      const { deployBondingCurve } = await import("@/lib/contractWiring");
+      const { deployBondingCurveViaWallet } = await import("@/lib/contractWiring");
       const treasuryKey = process.env.NEXT_PUBLIC_TREASURY_PK ?? "0".repeat(64);
       const creatorKey = crypto.randomUUID().replace(/-/g,"").padEnd(64,"0");
       alert("Generating ZK proof and deploying... this takes ~30 seconds");
-      const result = await deployBondingCurve({
+      const result = await deployBondingCurveViaWallet({
         creatorSkHex: creatorKey,
         treasurySkHex: treasuryKey,
         walletAPI: api,
