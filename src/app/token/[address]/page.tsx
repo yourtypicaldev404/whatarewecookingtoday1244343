@@ -35,7 +35,11 @@ export default function TokenPage() {
       <Navbar />
       <div className="container" style={{ paddingTop:28, paddingBottom:80 }}>
         <div style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:28, flexWrap:'wrap' }}>
-          <div style={{ width:60, height:60, borderRadius:14, background:'linear-gradient(135deg,#8b5cf6,#22d3ee)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, border:'2px solid rgba(139,92,246,.3)', flexShrink:0 }}>🌙</div>
+          <div style={{ width:60, height:60, borderRadius:14, background:'linear-gradient(135deg,#8b5cf6,#22d3ee)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, border:'2px solid rgba(139,92,246,.3)', flexShrink:0, overflow:'hidden' }}>
+            {token?.imageUri && token.imageUri !== 'ipfs://' 
+              ? <img src={token.imageUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} alt={token.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} onError={e => { (e.target as any).style.display='none'; }} />
+              : '🌙'}
+          </div>
           <div style={{ flex:1 }}>
             <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', marginBottom:6 }}>
               <h1 style={{ fontSize:26, fontWeight:800, margin:0 }}>{token.name}</h1>
@@ -51,6 +55,13 @@ export default function TokenPage() {
                 </div>
               ))}
             </div>
+          </div>
+          {/* Socials */}
+          <div style={{ display:'flex', gap:7, marginTop:8 }}>
+            {token?.website  && <a href={token.website}  target="_blank" rel="noopener" style={{ width:28, height:28, borderRadius:6, background:'var(--night-raised)', border:'1px solid var(--night-border)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, textDecoration:'none' }}>🌐</a>}
+            {token?.twitter  && <a href={token.twitter}  target="_blank" rel="noopener" style={{ width:28, height:28, borderRadius:6, background:'var(--night-raised)', border:'1px solid var(--night-border)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#fff', textDecoration:'none' }}>𝕏</a>}
+            {token?.telegram && <a href={token.telegram} target="_blank" rel="noopener" style={{ width:28, height:28, borderRadius:6, background:'var(--night-raised)', border:'1px solid var(--night-border)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, textDecoration:'none' }}>✈️</a>}
+            {token?.discord  && <a href={token.discord}  target="_blank" rel="noopener" style={{ width:28, height:28, borderRadius:6, background:'var(--night-raised)', border:'1px solid var(--night-border)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, textDecoration:'none' }}>💬</a>}
           </div>
         </div>
 
