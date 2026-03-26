@@ -6,6 +6,7 @@
   "description": "Midnight memecoin launchpad — privacy-first bonding curve (network via NEXT_PUBLIC_NETWORK_ID)",
   "scripts": {
     "dev": "next dev",
+    "deploy-server": "node deploy-server.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

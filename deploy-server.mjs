@@ -26,6 +26,40 @@ import { CompiledContract } from '@midnight-ntwrk/compact-js';
 globalThis.WebSocket = WebSocket;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/** Load `.env` then `.env.local` (local overrides). Never replaces vars already set by the shell (e.g. Railway). */
+function loadProjectEnvFiles() {
+  function parseEnvFile(filePath) {
+    const out = {};
+    if (!fs.existsSync(filePath)) return out;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq <= 0) continue;
+      const key = trimmed.slice(0, eq).trim();
+      let val = trimmed.slice(eq + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      out[key] = val;
+    }
+    return out;
+  }
+  const merged = {
+    ...parseEnvFile(path.join(__dirname, '.env')),
+    ...parseEnvFile(path.join(__dirname, '.env.local')),
+  };
+  for (const [k, v] of Object.entries(merged)) {
+    if (process.env[k] === undefined) process.env[k] = v;
+  }
+}
+loadProjectEnvFiles();
+
 const ZK_PATH   = path.resolve(__dirname, './contracts/managed/bonding_curve');
 
 /** Align with Lace / NEXT_PUBLIC_* — default Preview so chain state matches a Preview-configured wallet. */

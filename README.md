@@ -91,7 +91,19 @@ vercel --prod
 npm install
 ```
 
-Run frontend:
+**Local site + local proof** (three terminals, or compose “full” profile for proof+deploy in Docker):
+
+```bash
+cp .env.local.example .env.local   # once — sets DEPLOY_SERVER_URL, PROOF_SERVER_URL, NEXT_PUBLIC_PROOF_SERVER
+docker compose up -d                 # proof on :6300
+npm run deploy-server                # reads .env.local; default port 3001
+npm run dev                          # Next on :3000 → /api/* proxies to localhost:3001
+```
+
+Open `http://localhost:3000`. In **Lace** → Midnight → Prover server → `http://localhost:6300`.
+
+Run frontend only (e.g. production deploy URL already in env):
+
 ```bash
 npm run dev
 ```
@@ -102,10 +114,10 @@ Run **proof server** (ZK — required for deploy/trade proving). Prefer co-locat
 docker compose up -d
 ```
 
-Then run the deploy server with a **local** proof URL (default in `.env.example`):
+Then run the deploy server (uses `PROOF_SERVER_URL` from `.env.local` if present):
 
 ```bash
-PROOF_SERVER_URL=http://127.0.0.1:6300 node deploy-server.mjs
+npm run deploy-server
 ```
 
 **All-in-one Docker** (proof + deploy on the same compose network; deploy uses `http://proof-server:6300`):
