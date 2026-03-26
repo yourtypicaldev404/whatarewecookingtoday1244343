@@ -1,5 +1,7 @@
 'use client';
 
+import type { ConnectedAPI } from '@midnight-ntwrk/dapp-connector-api';
+
 export async function deployBondingCurveViaWallet(params: {
   name: string;
   ticker: string;
@@ -18,27 +20,39 @@ export async function deployBondingCurveViaWallet(params: {
 export interface TradeParams {
   contractAddress: string;
   action: 'buy' | 'sell';
-  // buy: provide adaIn + tokensOut
   adaIn?: string;
   tokensOut?: string;
-  // sell: provide tokensIn + adaOut
   tokensIn?: string;
   adaOut?: string;
 }
 
 export interface TradeResult {
+  /** Best-effort id for UI; confirm in Lace activity. */
   txId: string;
   contractAddress: string;
   action: string;
 }
 
-export async function executeTrade(params: TradeParams): Promise<TradeResult> {
-  /** Same-origin API proxies to DEPLOY_SERVER_URL (see /api/trade). */
+/**
+ * 1) POST /api/trade → deploy server builds circuit call + proves (ZK) using your shielded keys.
+ * 2) Lace balances fees / unshielded inputs and submits — you approve in the wallet.
+ */
+export async function executeTradeWithWallet(
+  params: TradeParams,
+  wallet: ConnectedAPI,
+): Promise<TradeResult> {
+  const shielded = await wallet.getShieldedAddresses();
+
   const res = await fetch('/api/trade', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify({
+      ...params,
+      coinPublicKeyHex: shielded.shieldedCoinPublicKey,
+      shieldedEncryptionPublicKeyHex: shielded.shieldedEncryptionPublicKey,
+    }),
   });
+
   if (!res.ok) {
     const text = await res.text();
     let msg: string;
@@ -47,7 +61,17 @@ export async function executeTrade(params: TradeParams): Promise<TradeResult> {
     } catch {
       msg = text;
     }
-    throw new Error(msg || `Trade failed (${res.status})`);
+    throw new Error(msg || `Trade build failed (${res.status})`);
   }
-  return res.json() as Promise<TradeResult>;
+
+  const { provenTxHex } = (await res.json()) as { provenTxHex: string };
+
+  const balanced = await wallet.balanceUnsealedTransaction(provenTxHex);
+  await wallet.submitTransaction(balanced.tx);
+
+  return {
+    txId: `submitted-${Date.now()}`,
+    contractAddress: params.contractAddress,
+    action: params.action,
+  };
 }

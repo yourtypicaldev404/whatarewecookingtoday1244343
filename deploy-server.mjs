@@ -5,7 +5,12 @@ import fs from 'fs';
 import { WebSocket } from 'ws';
 import * as Rx from 'rxjs';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
+import {
+  deployContract,
+  findDeployedContract,
+  createUnprovenCallTx,
+  getPublicStates,
+} from '@midnight-ntwrk/midnight-js-contracts';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
@@ -165,52 +170,52 @@ app.post('/deploy', async (req, res) => {
   }
 });
 
-app.post('/trade', async (req, res) => {
-  const { contractAddress, action, adaIn, tokensOut, tokensIn, adaOut } = req.body;
-  console.log(`Trade request: ${action} on ${contractAddress}`);
+/**
+ * Build + prove a buy/sell call using the *caller's* shielded keys (from Lace).
+ * Returns a proven transaction hex for the browser wallet to balance (fees) and submit.
+ */
+app.post('/trade/build', async (req, res) => {
+  const {
+    contractAddress,
+    action,
+    adaIn,
+    tokensOut,
+    tokensIn,
+    adaOut,
+    coinPublicKeyHex,
+    shieldedEncryptionPublicKeyHex,
+  } = req.body;
+
+  console.log(`Trade build: ${action} on ${contractAddress}`);
 
   if (!contractAddress || !action || !['buy', 'sell'].includes(action)) {
     return res.status(400).json({ error: 'Missing contractAddress or invalid action (buy|sell)' });
   }
-  if (action === 'buy' && (!adaIn || !tokensOut)) {
+  if (!coinPublicKeyHex || !shieldedEncryptionPublicKeyHex) {
+    return res.status(400).json({
+      error:
+        'Missing coinPublicKeyHex or shieldedEncryptionPublicKeyHex — connect Lace and pass getShieldedAddresses()',
+    });
+  }
+  if (action === 'buy' && (adaIn === undefined || tokensOut === undefined)) {
     return res.status(400).json({ error: 'buy requires adaIn and tokensOut' });
   }
-  if (action === 'sell' && (!tokensIn || !adaOut)) {
+  if (action === 'sell' && (tokensIn === undefined || adaOut === undefined)) {
     return res.status(400).json({ error: 'sell requires tokensIn and adaOut' });
   }
 
   try {
-    const { wallet, shieldedSK, dustSK } = await buildWallet(SEED);
-
-    const state = await Rx.firstValueFrom(
-      wallet.state().pipe(Rx.throttleTime(5000), Rx.filter(s => s.isSynced))
-    );
-    const walletProvider = {
-      getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),
-      getEncryptionPublicKey: () => state.shielded.encryptionPublicKey.toHexString(),
-      async balanceTx(tx, ttl) {
-        const recipe = await wallet.balanceUnboundTransaction(
-          tx,
-          { shieldedSecretKeys: shieldedSK, dustSecretKey: dustSK },
-          { ttl: ttl ?? new Date(Date.now() + 30 * 60 * 1000) }
-        );
-        return wallet.finalizeRecipe(recipe);
-      },
-      submitTx: (tx) => wallet.submitTransaction(tx),
+    const stubWallet = {
+      getCoinPublicKey: () => coinPublicKeyHex,
+      getEncryptionPublicKey: () => shieldedEncryptionPublicKeyHex,
     };
 
     const zkConfig = new NodeZkConfigProvider(ZK_PATH);
+    const publicDataProvider = indexerPublicDataProvider(INDEXER, INDEXERWS);
     const providers = {
-      privateStateProvider: levelPrivateStateProvider({
-        privateStateStoreName: 'night-fun-trade-' + Date.now(),
-        privateStoragePasswordProvider: () => 'night-fun-secret-2026',
-        accountId: 'trader-' + Date.now(),
-      }),
-      publicDataProvider:  indexerPublicDataProvider(INDEXER, INDEXERWS),
-      zkConfigProvider:    zkConfig,
-      proofProvider:       httpClientProofProvider(PROOF, zkConfig),
-      walletProvider,
-      midnightProvider:    walletProvider,
+      zkConfigProvider: zkConfig,
+      publicDataProvider,
+      walletProvider: stubWallet,
     };
 
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
@@ -220,27 +225,28 @@ app.post('/trade', async (req, res) => {
       CompiledContract.withCompiledFileAssets(ZK_PATH),
     );
 
-    const deployed = await findDeployedContract(providers, {
+    const args =
+      action === 'buy'
+        ? [BigInt(adaIn), BigInt(tokensOut)]
+        : [BigInt(tokensIn), BigInt(adaOut)];
+
+    const unsubmitted = await createUnprovenCallTx(providers, {
+      compiledContract,
       contractAddress,
-      contract: compiledContract,
-      privateStateId: 'bondingCurve-' + contractAddress,
-      initialPrivateState: {},
+      circuitId: action === 'buy' ? 'buy' : 'sell',
+      args,
     });
 
-    let txData;
-    if (action === 'buy') {
-      txData = await deployed.callTx.buy(BigInt(adaIn), BigInt(tokensOut));
-    } else {
-      txData = await deployed.callTx.sell(BigInt(tokensIn), BigInt(adaOut));
-    }
+    const tx = unsubmitted.private.unprovenTx;
+    const { ledgerParameters } = await getPublicStates(publicDataProvider, contractAddress);
+    const costModel = ledgerParameters.transactionCostModel.runtimeCostModel;
+    const proofProvider = httpClientProofProvider(PROOF, zkConfig);
+    const proven = await tx.prove(proofProvider, costModel);
+    const provenTxHex = Buffer.from(proven.serialize()).toString('hex');
 
-    await wallet.stop();
-
-    const result = { txId: txData.public.txId, contractAddress, action };
-    console.log('Trade result:', result);
-    res.json(result);
+    res.json({ provenTxHex, contractAddress, action });
   } catch (err) {
-    console.error('Trade failed:', err.message);
+    console.error('Trade build failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

@@ -29,6 +29,9 @@ const CONNECT_HINT: Array<keyof WalletConnectedAPI> = [
   'getUnshieldedAddress',
   'getDustAddress',
   'getUnshieldedBalances',
+  'getShieldedAddresses',
+  'balanceUnsealedTransaction',
+  'submitTransaction',
 ];
 
 function isInitialAPI(x: unknown): x is InitialAPI {

@@ -5,11 +5,14 @@ import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import ZkWorkOverlay from '@/components/ZkWorkOverlay';
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
-import { executeTrade } from '@/lib/contractWiring';
+import { executeTradeWithWallet, type TradeParams } from '@/lib/contractWiring';
 import { MIDNIGHT_NETWORK_CAPTION } from '@/lib/network';
+import { useWallet } from '@/lib/wallet/WalletProvider';
 
 export default function TokenPage() {
-  const { address } = useParams<{ address: string }>();
+  const { address: addressParam } = useParams<{ address: string }>();
+  const address = typeof addressParam === 'string' ? addressParam : addressParam?.[0] ?? '';
+  const { api, connected } = useWallet();
   const [token, setToken] = useState<any>(null);
   const [tradeMode, setTradeMode] = useState('buy');
   const [amount, setAmount] = useState('');
@@ -36,6 +39,10 @@ export default function TokenPage() {
 
   async function handleTrade() {
     if (!amount || !token) return;
+    if (!connected || !api) {
+      setTradeError('Connect your Lace wallet first (Connect Lace in the header).');
+      return;
+    }
     setTrading(true);
     setTxResult(null);
     setTradeError(null);
@@ -44,7 +51,7 @@ export default function TokenPage() {
       const ada = BigInt(token.adaReserve);
       const tok = BigInt(token.tokenReserve);
 
-      let params: Parameters<typeof executeTrade>[0];
+      let params: TradeParams;
 
       if (tradeMode === 'buy') {
         const adaInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
@@ -70,7 +77,7 @@ export default function TokenPage() {
         };
       }
 
-      const result = await executeTrade(params);
+      const result = await executeTradeWithWallet(params, api);
       setTxResult({ txId: result.txId });
 
       // Update reserves in Redis after confirmed trade
@@ -224,9 +231,13 @@ export default function TokenPage() {
 
               {txResult && (
                 <div style={{ background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.3)', borderRadius:8, padding:'8px 12px', marginBottom:10, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--neon-green)' }}>
-                  Trade confirmed!<br/>
-                  <span style={{ color:'var(--text-muted)' }}>Tx: {txResult.txId.slice(0,16)}...</span>
+                  Submitted through Lace.<br/>
+                  <span style={{ color:'var(--text-muted)' }}>Check your wallet activity for the on-chain tx.</span>
                 </div>
+              )}
+
+              {!connected && (
+                <p style={{ fontSize:12, color:'var(--neon-amber)', marginBottom:10 }}>Connect Lace to buy or sell — your keys stay in the wallet.</p>
               )}
 
               <button

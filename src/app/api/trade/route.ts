@@ -4,8 +4,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 /**
- * Proxies buy/sell to the Railway deploy server (same pattern as /api/deploy).
- * Browser calls same-origin /api/trade — avoids "Failed to fetch" to localhost:3001 on Vercel.
+ * Proxies to deploy server POST /trade/build: create unproven call + ZK prove using caller's
+ * shielded keys. Browser then uses Lace balanceUnsealedTransaction + submitTransaction.
  */
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   );
 
   try {
-    const res = await fetch(`${deployServerUrl}/trade`, {
+    const res = await fetch(`${deployServerUrl}/trade/build`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
