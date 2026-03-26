@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET } from '@/lib/midnight/bondingCurve';
 
-const MOCK = { name:'Midnight Cat', ticker:'MCAT', description:'The first cat on Midnight. Privacy meows.', adaReserve:14500000000n, tokenReserve:750000000000000n, totalVolume:28000000000n, txCount:347, holderCount:89, graduated:false, lockedPercent:20 };
+const MOCK = { name:'Token', ticker:'MCAT', description:'The first cat on Midnight. Privacy meows.', adaReserve:14500000000n, tokenReserve:750000000000000n, totalVolume:28000000000n, txCount:347, holderCount:89, graduated:false, lockedPercent:20 };
 
 export default function TokenPage() {
   const { address } = useParams();

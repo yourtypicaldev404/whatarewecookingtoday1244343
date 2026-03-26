@@ -9,3 +9,4 @@ logs/
 .DS_Store
 night-fun.db
 .vercel
+token-registry.json
