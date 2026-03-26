@@ -33,8 +33,8 @@ export interface TradeResult {
 }
 
 export async function executeTrade(params: TradeParams): Promise<TradeResult> {
-  const serverUrl = process.env.NEXT_PUBLIC_DEPLOY_SERVER_URL?.replace(/\/$/, '') ?? 'http://localhost:3001';
-  const res = await fetch(`${serverUrl}/trade`, {
+  /** Same-origin API proxies to DEPLOY_SERVER_URL (see /api/trade). */
+  const res = await fetch('/api/trade', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -42,8 +42,12 @@ export async function executeTrade(params: TradeParams): Promise<TradeResult> {
   if (!res.ok) {
     const text = await res.text();
     let msg: string;
-    try { msg = JSON.parse(text).error ?? text; } catch { msg = text; }
-    throw new Error(msg);
+    try {
+      msg = (JSON.parse(text) as { error?: string }).error ?? text;
+    } catch {
+      msg = text;
+    }
+    throw new Error(msg || `Trade failed (${res.status})`);
   }
-  return res.json();
+  return res.json() as Promise<TradeResult>;
 }

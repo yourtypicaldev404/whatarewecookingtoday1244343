@@ -78,3 +78,33 @@ input::placeholder, textarea::placeholder { color: var(--text-muted); }
 .divider { height:1px; background:var(--night-border); margin:24px 0; }
 ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:var(--night-deep); } ::-webkit-scrollbar-thumb { background:rgba(139,92,246,0.3); border-radius:3px; }
 ::selection { background:rgba(139,92,246,0.3); color:#fff; }
+
+/* Long-running ZK / trade overlay */
+.zk-spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(139, 92, 246, 0.2);
+  border-top-color: var(--neon-violet-bright);
+  border-radius: 50%;
+  animation: zk-spin 0.85s linear infinite;
+}
+@keyframes zk-spin {
+  to { transform: rotate(360deg); }
+}
+.zk-progress-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.zk-progress-indeterminate {
+  height: 100%;
+  width: 38%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--neon-violet), var(--neon-cyan));
+  animation: zk-indeterminate 1.25s ease-in-out infinite;
+}
+@keyframes zk-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(380%); }
+}

@@ -3,6 +3,7 @@ import PriceChart from '@/components/PriceChart';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import ZkWorkOverlay from '@/components/ZkWorkOverlay';
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
 import { executeTrade } from '@/lib/contractWiring';
 import { MIDNIGHT_NETWORK_CAPTION } from '@/lib/network';
@@ -132,6 +133,14 @@ export default function TokenPage() {
 
   return (
     <div style={{ minHeight:'100vh', paddingTop:56 }}>
+      <ZkWorkOverlay
+        open={trading || !!tradeError}
+        error={tradeError}
+        variant="trade"
+        title="Creating ZK proof…"
+        subtitle="Hold on — proving and submitting your trade can take up to a minute."
+        onDismiss={tradeError ? () => setTradeError(null) : undefined}
+      />
       <Navbar />
       <div className="container" style={{ paddingTop:28, paddingBottom:80 }}>
         <div style={{ display:'flex', gap:14, alignItems:'flex-start', marginBottom:28, flexWrap:'wrap' }}>
@@ -213,12 +222,6 @@ export default function TokenPage() {
                 </div>
               )}
 
-              {tradeError && (
-                <div style={{ background:'rgba(251,113,133,.1)', border:'1px solid rgba(251,113,133,.3)', borderRadius:8, padding:'8px 12px', marginBottom:10, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--neon-rose)' }}>
-                  {tradeError}
-                </div>
-              )}
-
               {txResult && (
                 <div style={{ background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.3)', borderRadius:8, padding:'8px 12px', marginBottom:10, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--neon-green)' }}>
                   Trade confirmed!<br/>
@@ -233,7 +236,7 @@ export default function TokenPage() {
                 style={{ opacity: (trading || !amount || !quote) ? 0.6 : 1, cursor: (trading || !amount || !quote) ? 'not-allowed' : 'pointer' }}
               >
                 {trading
-                  ? 'Proving ZK transaction...'
+                  ? 'Working…'
                   : tradeMode === 'buy'
                     ? `Buy ${token.ticker}`
                     : `Sell ${token.ticker}`}

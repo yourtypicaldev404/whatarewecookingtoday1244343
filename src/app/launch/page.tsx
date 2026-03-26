@@ -1,13 +1,14 @@
 'use client';
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { PUBLIC_NETWORK_ID, PUBLIC_NETWORK_LABEL } from '@/lib/network';
+import ZkWorkOverlay from '@/components/ZkWorkOverlay';
+import { PUBLIC_NETWORK_LABEL } from '@/lib/network';
 
 export default function LaunchPage() {
-  const router = useRouter();
   const [step, setStep] = useState(0);
-  const [deploying, setDeploying] = useState(false);
+  const [deployBusy, setDeployBusy] = useState(false);
+  const [deployPhase, setDeployPhase] = useState<'proving' | 'saving'>('proving');
+  const [deployError, setDeployError] = useState<string | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [form, setForm] = useState({ name:'', ticker:'', description:'', website:'', twitter:'', telegram:'', discord:'', initialBuy:'0' });
   const fileRef = useRef(null);
@@ -16,49 +17,57 @@ export default function LaunchPage() {
 
 
   const handleLaunch = async () => {
-    if (typeof window === "undefined" || !window.midnight) {
-      alert("Please install and connect Lace wallet");
-      return;
-    }
+    if (deployBusy) return;
+    setDeployError(null);
+    setDeployPhase('proving');
+    setDeployBusy(true);
     try {
-      const wallets = Object.values(window.midnight);
-      if (!wallets.length) { alert("No Midnight wallet found"); return; }
-      const api = await wallets[0].connect(PUBLIC_NETWORK_ID);
-      const config = await api.getConfiguration();
-      const { deployBondingCurveViaWallet } = await import("@/lib/contractWiring");
-      const treasuryKey = process.env.NEXT_PUBLIC_TREASURY_PK ?? "0".repeat(64);
-      const creatorKey = crypto.randomUUID().replace(/-/g,"").padEnd(64,"0");
-      if (deploying) return;
-      setDeploying(true);
-      alert("Generating ZK proof and deploying... this takes ~30 seconds");
+      const { deployBondingCurveViaWallet } = await import('@/lib/contractWiring');
       const result = await deployBondingCurveViaWallet({
         name: form.name,
         ticker: form.ticker,
         description: form.description,
-        imageUri: "ipfs://",
+        imageUri: 'ipfs://',
       });
-      alert("Deployed! Contract: " + result.contractAddress);
-      await fetch("/api/tokens", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      setDeployPhase('saving');
+      await fetch('/api/tokens', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address: result.contractAddress,
           name: form.name,
           ticker: form.ticker,
           description: form.description,
-          imageUri: "ipfs://",
-          creatorAddr: "unknown",
+          imageUri: 'ipfs://',
+          creatorAddr: 'unknown',
           txHash: result.txId,
         }),
       });
-      window.location.href = "/token/" + result.contractAddress;
-    } catch (err: any) {
-      alert("Deploy failed: " + err.message);
+      window.location.href = '/token/' + result.contractAddress;
+    } catch (err: unknown) {
+      setDeployError(err instanceof Error ? err.message : 'Deploy failed');
     }
+  };
+
+  const dismissDeployOverlay = () => {
+    setDeployBusy(false);
+    setDeployError(null);
   };
 
   return (
     <div style={{ minHeight:'100vh', paddingTop:56 }}>
+      <ZkWorkOverlay
+        open={deployBusy}
+        error={deployError}
+        variant={deployPhase === 'saving' ? 'saving' : 'proving'}
+        title={deployPhase === 'saving' ? 'Finishing up…' : 'Creating ZK proof…'}
+        subtitle={
+          deployPhase === 'saving'
+            ? 'Registering your token in the night.fun directory.'
+            : 'The deploy server is generating proofs and submitting your contract. This usually takes 30–90 seconds — hang tight.'
+        }
+        onDismiss={deployError ? dismissDeployOverlay : undefined}
+      />
       <Navbar />
       <div className="container" style={{ maxWidth:680, paddingTop:40, paddingBottom:80 }}>
         <div style={{ marginBottom:28 }}>
@@ -171,8 +180,14 @@ export default function LaunchPage() {
                   </div>
                 ))}
               </div>
-              <button className="btn btn-primary" style={{ width:'100%', fontSize:15, padding:14 }} onClick={handleLaunch}>
-                🚀 Launch {form.ticker || 'token'} on {PUBLIC_NETWORK_LABEL}
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width:'100%', fontSize:15, padding:14 }}
+                onClick={handleLaunch}
+                disabled={deployBusy}
+              >
+                {deployBusy ? 'Working…' : `🚀 Launch ${form.ticker || 'token'} on ${PUBLIC_NETWORK_LABEL}`}
               </button>
             </div>
           )}
