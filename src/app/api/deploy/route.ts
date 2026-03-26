@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing name or ticker' }, { status: 400 });
     }
 
-    const deployServerUrl = process.env.DEPLOY_SERVER_URL ?? 'http://localhost:3001';
+    const deployServerUrl = (process.env.DEPLOY_SERVER_URL ?? 'http://localhost:3001').replace(/\/$/, '');
 
     const deployRes = await fetch(`${deployServerUrl}/deploy`, {
       method: 'POST',
