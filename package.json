@@ -31,7 +31,7 @@
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "^4.0.1",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "^3.0.0",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "^4.0.1",
-    "@midnight-ntwrk/midnight-js-network-id": "^3.0.0",
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.1",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "^3.0.0",
     "@midnight-ntwrk/midnight-js-utils": "3.1.0",
     "@midnight-ntwrk/wallet-sdk-address-format": "^3.0.0",
@@ -66,5 +66,8 @@
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "overrides": {
+    "@midnight-ntwrk/midnight-js-network-id": "4.0.1"
   }
 }
