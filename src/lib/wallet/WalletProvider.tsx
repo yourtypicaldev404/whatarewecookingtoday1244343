@@ -11,57 +11,76 @@
  */
 
 import {
-  createContext, useContext, useState, useCallback, useEffect,
+  createContext, useContext, useState, useCallback, useEffect, useRef,
   type ReactNode,
 } from 'react';
+import type {
+  WalletConnectedAPI,
+  InitialAPI,
+  ConnectedAPI,
+  Configuration,
+} from '@midnight-ntwrk/dapp-connector-api';
 
-// ── DApp Connector API types (from @midnight-ntwrk/dapp-connector-api) ────────
+/** Methods we call right after connect — required by v4 so the wallet can prompt for permissions. */
+const CONNECT_HINT: Array<keyof WalletConnectedAPI> = [
+  'getConfiguration',
+  'getDustBalance',
+  'getUnshieldedAddress',
+  'getDustAddress',
+  'getUnshieldedBalances',
+];
 
-interface ServiceUriConfig {
-  indexerUri:      string;
-  indexerWsUri:    string;
-  proverServerUri: string;
-  substrateNodeUri:string;
-  networkId:       string;
+function isInitialAPI(x: unknown): x is InitialAPI {
+  return (
+    typeof x === 'object' &&
+    x !== null &&
+    'connect' in x &&
+    typeof (x as InitialAPI).connect === 'function'
+  );
 }
 
-interface ConnectedAPI {
-  getConfiguration():            Promise<ServiceUriConfig>;
-  getShieldedBalances():         Promise<Record<string, bigint>>;
-  getUnshieldedBalances():       Promise<Record<string, bigint>>;
-  getDustBalance():              Promise<bigint>;
-  getShieldedAddresses():        Promise<{ shieldedAddress: string }>;
-  getUnshieldedAddress():        Promise<string>;
-  getDustAddress():              Promise<string>;
-  balanceUnsealedTransaction(tx: unknown): Promise<{ tx: unknown }>;
-  balanceSealedTransaction(tx: unknown):   Promise<{ tx: unknown }>;
-  submitTransaction(tx: unknown):          Promise<string>;
-  makeTransfer(outputs: TransferOutput[]): Promise<unknown>;
-  getProvingProvider(keyProvider: unknown): ProvingProvider;
-}
-
-interface TransferOutput {
-  kind:      'unshielded' | 'shielded';
-  tokenType: string;
-  value:     bigint;
-  recipient: string;
-}
-
-interface ProvingProvider {
-  prove(tx: unknown, costModel: unknown): Promise<unknown>;
-}
-
-interface InitialAPI {
-  name:       string;
-  icon:       string;
-  apiVersion: string;
-  connect(networkId: string): Promise<ConnectedAPI>;
-}
-
-declare global {
-  interface Window {
-    midnight?: Record<string, InitialAPI>;
+function parseDustBalance(r: unknown): bigint {
+  if (typeof r === 'bigint') return r;
+  if (r && typeof r === 'object' && 'balance' in r) {
+    const b = (r as { balance?: unknown }).balance;
+    if (typeof b === 'bigint') return b;
+    try {
+      return BigInt(String(b ?? 0));
+    } catch {
+      return 0n;
+    }
   }
+  try {
+    return BigInt(String((r as { value?: unknown })?.value ?? (r as { amount?: unknown })?.amount ?? 0));
+  } catch {
+    return 0n;
+  }
+}
+
+function parseUnshieldedAddress(r: unknown): string {
+  if (typeof r === 'string') return r;
+  if (r && typeof r === 'object') {
+    const o = r as { unshieldedAddress?: string; address?: string; bech32?: string };
+    if (typeof o.unshieldedAddress === 'string') return o.unshieldedAddress;
+    if (typeof o.address === 'string') return o.address;
+    if (typeof o.bech32 === 'string') return o.bech32;
+  }
+  try {
+    return JSON.stringify(r);
+  } catch {
+    return '';
+  }
+}
+
+function parseDustAddress(r: unknown): string {
+  if (typeof r === 'string') return r;
+  if (r && typeof r === 'object') {
+    const o = r as { dustAddress?: string; address?: string; bech32?: string };
+    if (typeof o.dustAddress === 'string') return o.dustAddress;
+    if (typeof o.address === 'string') return o.address;
+    if (typeof o.bech32 === 'string') return o.bech32;
+  }
+  return '';
 }
 
 // ── Wallet state ──────────────────────────────────────────────────────────────
@@ -73,7 +92,7 @@ export interface WalletState {
   dustAddr:         string | null;
   dustBalance:      bigint;
   tokenBalances:    Record<string, bigint>;
-  serviceConfig:    ServiceUriConfig | null;
+  serviceConfig:    Configuration | null;
   connecting:       boolean;
   error:            string | null;
 }
@@ -96,6 +115,7 @@ const NETWORK_ID = process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preprod';
 // ── Provider ──────────────────────────────────────────────────────────────────
 
 export function WalletProvider({ children }: { children: ReactNode }) {
+  const connectSeqRef = useRef(0);
   const [connectedAPI, setConnectedAPI] = useState<ConnectedAPI | null>(null);
   const [state, setState] = useState<WalletState>({
     connected:      false,
@@ -109,15 +129,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     error:          null,
   });
 
-  // Auto-reconnect on mount
-  useEffect(() => {
-    const savedWalletId = typeof localStorage !== 'undefined'
-      ? localStorage.getItem('nightfun-walletId')
-      : null;
-    if (savedWalletId) connect(savedWalletId).catch(() => {});
-  }, []);
-
   const connect = useCallback(async (preferredId?: string) => {
+    const seq = ++connectSeqRef.current;
     setState(s => ({ ...s, connecting: true, error: null }));
 
     try {
@@ -125,35 +138,46 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         throw new Error('No Midnight wallets detected. Please install the Lace wallet extension.');
       }
 
-      const wallets = Object.entries(window.midnight);
+      const wallets = Object.entries(window.midnight).filter(
+        ([, w]) => isInitialAPI(w),
+      );
       if (wallets.length === 0) {
         throw new Error('No Midnight wallets detected.');
       }
 
       // Pick preferred wallet or first compatible one
-      const [walletId, walletAPI] = preferredId && window.midnight[preferredId]
+      const [walletId, walletAPI] = preferredId && window.midnight[preferredId] && isInitialAPI(window.midnight[preferredId])
         ? [preferredId, window.midnight[preferredId]]
         : wallets[0];
 
       const connected = await walletAPI.connect(NETWORK_ID);
 
-      // Pull wallet info
+      // v4: ask the wallet which RPC methods we need (permissions / unlock prompts)
+      if (typeof connected.hintUsage === 'function') {
+        await connected.hintUsage(CONNECT_HINT);
+      }
+
+      // Pull wallet info (v4 shapes: getDustBalance → { balance, cap }, addresses → { unshieldedAddress }, etc.)
       console.log('[Wallet] Connected wallet:', walletId, 'API:', Object.keys(connected));
-      const [config, dustBalance, unshieldedAddr, dustAddr, unshieldedBals] =
+      const [config, dustBalRaw, unshieldedAddr, dustAddr, unshieldedBals] =
         await Promise.all([
           connected.getConfiguration(),
-          connected.getDustBalance().then((r: any) => typeof r === "bigint" ? r : BigInt(r?.value ?? r?.amount ?? 0)),
-          connected.getUnshieldedAddress().then((r: any) => typeof r === "string" ? r : r?.address ?? r?.bech32 ?? JSON.stringify(r)),
-          connected.getDustAddress().then((r: any) => typeof r === "string" ? r : r?.address ?? r?.bech32 ?? ""),
+          connected.getDustBalance(),
+          connected.getUnshieldedAddress(),
+          connected.getDustAddress(),
           connected.getUnshieldedBalances(),
         ]);
+
+      const dustBalance = parseDustBalance(dustBalRaw);
+
+      if (seq !== connectSeqRef.current) return;
 
       setConnectedAPI(connected);
       setState({
         connected:      true,
         walletId,
-        unshieldedAddr,
-        dustAddr,
+        unshieldedAddr: parseUnshieldedAddress(unshieldedAddr),
+        dustAddr:       parseDustAddress(dustAddr),
         dustBalance,
         tokenBalances:  unshieldedBals,
         serviceConfig:  config,
@@ -165,11 +189,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('nightfun-walletId', walletId);
 
     } catch (err) {
+      if (seq !== connectSeqRef.current) return;
       const msg = err instanceof Error ? err.message : 'Wallet connection failed';
       setState(s => ({ ...s, connecting: false, error: msg }));
       localStorage.removeItem('nightfun-walletId');
     }
   }, []);
+
+  // Auto-reconnect on mount
+  useEffect(() => {
+    const savedWalletId = typeof localStorage !== 'undefined'
+      ? localStorage.getItem('nightfun-walletId')
+      : null;
+    if (savedWalletId) void connect(savedWalletId);
+  }, [connect]);
 
   const disconnect = useCallback(() => {
     setConnectedAPI(null);
@@ -183,10 +216,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const refreshBalances = useCallback(async () => {
     if (!connectedAPI) return;
-    const [dustBalance, tokenBalances] = await Promise.all([
+    const [dustRaw, tokenBalances] = await Promise.all([
       connectedAPI.getDustBalance(),
       connectedAPI.getUnshieldedBalances(),
     ]);
+    const dustBalance = parseDustBalance(dustRaw);
     setState(s => ({ ...s, dustBalance, tokenBalances }));
   }, [connectedAPI]);
 
