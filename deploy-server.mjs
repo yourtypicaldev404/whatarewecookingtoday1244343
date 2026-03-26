@@ -120,6 +120,20 @@ const PORT      = process.env.PORT ?? process.env.DEPLOY_SERVER_PORT ?? 3001;
 // Import contract
 const { Contract } = await import('./contracts/managed/bonding_curve/contract/index.js');
 
+/** Map SDK errors to actionable copy for swaps. */
+function formatTradeBuildError(err) {
+  const m = err?.message ?? String(err);
+  if (m.includes('No public state found at contract address')) {
+    return (
+      `No indexer state for this contract on network "${NETWORK_ID}". ` +
+      `The bonding curve was never deployed here, or Lace / the app / Railway use a different network than the deployment. ` +
+      `Align NEXT_PUBLIC_NETWORK_ID, deploy-server NETWORK_ID, and indexer URLs with the network where the token was launched. ` +
+      `Original: ${m}`
+    );
+  }
+  return m;
+}
+
 // Derive shielded keys once at startup (no wallet sync needed).
 // Used as walletProvider stub for createUnprovenCallTx — buy/sell circuits have no
 // shielded outputs so the actual key values don't affect the trade result.
@@ -358,7 +372,7 @@ app.post('/trade/build', async (req, res) => {
     res.json({ unprovenTxHex, contractAddress, action, profile });
   } catch (err) {
     console.error('Trade build failed:', err.message);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: formatTradeBuildError(err) });
   }
 });
 

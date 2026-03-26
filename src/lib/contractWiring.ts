@@ -83,6 +83,13 @@ function tradeBuildErrorMessage(status: number, body: string): string {
   if (generic) {
     return `Trade build failed (${status}). ${t.slice(0, 200)}`;
   }
+  if (!generic && /no public state found at contract address/i.test(t)) {
+    return (
+      'This token has no on-chain contract on the network your indexer uses (often wrong network vs where the token was launched). ' +
+      'Use the same Preview/Preprod in Lace, Vercel, and Railway. ' +
+      t
+    );
+  }
   return t || `Trade build failed (${status})`;
 }
 

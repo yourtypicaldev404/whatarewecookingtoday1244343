@@ -49,8 +49,7 @@ export default function ZkWorkOverlay({
 
   const profileLine =
     variant === 'trade' && tradePhase === 'wallet' && tradeProfile
-      ? `Built in: ${(
-          tradeProfile.createUnprovenMs / 1000).toFixed(1)}s`
+      ? `Built in ${(tradeProfile.createUnprovenMs / 1000).toFixed(1)}s · server ${(tradeProfile.serverTotalMs / 1000).toFixed(1)}s`
       : null;
 
   return (
