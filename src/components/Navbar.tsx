@@ -32,16 +32,15 @@ export default function Navbar() {
         onClick={() => {
           if (connected) {
             disconnect();
-          } else if (typeof window !== 'undefined' && !window.midnight) {
-            // Lace not installed — send to appropriate extension store
-            const ua = navigator.userAgent;
-            const isFirefox = ua.includes('Firefox/');
-            const storeUrl = isFirefox
-              ? 'https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk' // Lace not on Firefox; point to Chrome store
-              : 'https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk';
-            window.open(storeUrl, '_blank', 'noopener');
           } else {
-            connect();
+            const hasMidnightWallet = typeof window !== 'undefined' &&
+              window.midnight &&
+              Object.keys(window.midnight).length > 0;
+            if (hasMidnightWallet) {
+              connect();
+            } else {
+              window.location.href = 'https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk';
+            }
           }
         }}
         disabled={connecting}
