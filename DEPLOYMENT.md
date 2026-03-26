@@ -11,28 +11,9 @@ test -f .env.local || cp .env.local.example .env.local
 npm run dev:local
 ```
 
-This runs `docker compose up -d` (proof on **6300**), then **deploy-server** + **Next dev** together. The app and deploy server **listen on `0.0.0.0`** so they are reachable from other machines on the network (not only localhost).
+This runs `docker compose up -d` (proof on **6300**), then **deploy-server** + **Next dev** together. Open **http://localhost:3000**.
 
-- Same machine: open **http://localhost:3000** and set Lace prover to **http://localhost:6300**.
-
-### Browser on laptop, app on a remote server (VPS)
-
-1. On the server, open the firewall for **3000** (Next), **3001** (deploy API target — usually only needed server-side), **6300** (proof). Example: `sudo ufw allow 3000,3001,6300/tcp && sudo ufw reload`.
-2. Find the server’s public IP or DNS name (`YOUR_PUBLIC_IP`).
-3. On your laptop, open **http://YOUR_PUBLIC_IP:3000**.
-4. In **Lace → Midnight → Prover server**, use **http://YOUR_PUBLIC_IP:6300** (not `localhost` — that would point at your laptop).
-
-`DEPLOY_SERVER_URL` and `PROOF_SERVER_URL` in `.env.local` on the server stay **`http://localhost:3001`** and **`http://127.0.0.1:6300`** — traffic stays on the VPS. Only the **browser** talks to the public IP.
-
-**Safer (no public proof port):** from your laptop, SSH tunnel instead of exposing 6300:
-
-```bash
-ssh -L 3000:127.0.0.1:3000 -L 6300:127.0.0.1:6300 user@YOUR_PUBLIC_IP
-```
-
-Then use **http://localhost:3000** and Lace **http://localhost:6300** as if everything were local.
-
-**Lace (browser):** the prover URL is always set in the wallet UI — not in this repo.
+**Lace (browser):** you must set **Settings → Midnight → Prover server → `http://localhost:6300`** on the machine where the extension runs. This cannot be set from the repo.
 
 ---
 

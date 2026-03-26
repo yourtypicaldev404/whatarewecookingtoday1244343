@@ -6,7 +6,7 @@
   "description": "Midnight memecoin launchpad — privacy-first bonding curve (network via NEXT_PUBLIC_NETWORK_ID)",
   "scripts": {
     "dev": "next dev",
-    "dev:local": "docker compose up -d && concurrently -k -n deploy,web -c blue,magenta \"npm run deploy-server\" \"next dev -H 0.0.0.0\"",
+    "dev:local": "docker compose up -d && concurrently -k -n deploy,web -c blue,magenta \"npm run deploy-server\" \"npm run dev\"",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "deploy-server": "node deploy-server.mjs",
