@@ -76,7 +76,12 @@ const NETWORK_DEFAULTS = {
   },
 };
 
-const NETWORK_ID = (process.env.NETWORK_ID ?? process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preview').toLowerCase();
+/**
+ * Deploy server network — **NETWORK_ID only** (default `preview`).
+ * Do not read NEXT_PUBLIC_NETWORK_ID here: Railway often copies Vercel-style env and a wrong
+ * NEXT_PUBLIC_NETWORK_ID (e.g. preprod) would break indexer/trades vs Vercel preview.
+ */
+const NETWORK_ID = (process.env.NETWORK_ID ?? 'preview').toLowerCase();
 const defaults = NETWORK_DEFAULTS[NETWORK_ID] ?? null;
 
 const INDEXER =
@@ -127,7 +132,7 @@ function formatTradeBuildError(err) {
     return (
       `No indexer state for this contract on network "${NETWORK_ID}". ` +
       `The bonding curve was never deployed here, or Lace / the app / Railway use a different network than the deployment. ` +
-      `Align NEXT_PUBLIC_NETWORK_ID, deploy-server NETWORK_ID, and indexer URLs with the network where the token was launched. ` +
+      `Set deploy-server NETWORK_ID (Railway) to match where the token was deployed, and Vercel NEXT_PUBLIC_NETWORK_ID to the same network. ` +
       `Original: ${m}`
     );
   }
