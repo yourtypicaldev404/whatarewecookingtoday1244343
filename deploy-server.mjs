@@ -32,7 +32,7 @@ const NODE      = 'https://rpc.preprod.midnight.network';
 const PROOF     = process.env.PROOF_SERVER_URL ?? 'http://localhost:6300';
 const SEED      = process.env.DEPLOYER_SEED ?? '971da3750a45a3812c732f8b70ccb9d8c7e7b55e65700b87f5346fc1c7d1a952';
 const TREASURY  = process.env.TREASURY_SEED ?? SEED;
-const PORT      = process.env.DEPLOY_SERVER_PORT ?? 3001;
+const PORT      = process.env.PORT ?? process.env.DEPLOY_SERVER_PORT ?? 3001;
 
 // Import contract
 const { Contract } = await import('./contracts/managed/bonding_curve/contract/index.js');
