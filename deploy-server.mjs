@@ -161,7 +161,7 @@ function deriveShieldedKeysFromSeed(seed) {
     return r.keys;
   })();
   const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
-  const toHex = (v) => v instanceof Uint8Array ? Buffer.from(v).toString('hex') : String(v);
+  const toHex = (v) => typeof v === 'string' ? v : Buffer.from(Array.from(v)).toString('hex');
   return {
     getCoinPublicKey: () => toHex(shieldedSK.coinPublicKey),
     getEncryptionPublicKey: () => toHex(shieldedSK.encryptionPublicKey),
