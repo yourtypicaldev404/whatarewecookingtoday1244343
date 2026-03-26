@@ -26,6 +26,8 @@ export default function LaunchPage() {
       const { deployBondingCurveViaWallet } = await import("@/lib/contractWiring");
       const treasuryKey = process.env.NEXT_PUBLIC_TREASURY_PK ?? "0".repeat(64);
       const creatorKey = crypto.randomUUID().replace(/-/g,"").padEnd(64,"0");
+      if (deploying) return;
+      setDeploying(true);
       alert("Generating ZK proof and deploying... this takes ~30 seconds");
       const result = await deployBondingCurveViaWallet({
         name: form.name,

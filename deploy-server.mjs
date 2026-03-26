@@ -20,6 +20,8 @@ import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 globalThis.WebSocket = WebSocket;
 setNetworkId('preprod');
+// Also set for midnight-js-contracts nested copy
+import('/tmp/set-network.mjs').then(m => m.setNetworkId('preprod')).catch(() => {});
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ZK_PATH   = path.resolve(__dirname, './contracts/managed/bonding_curve');
@@ -84,9 +86,12 @@ async function deployBondingCurve() {
   const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
   const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
 
+  const state = await Rx.firstValueFrom(
+    wallet.state().pipe(Rx.throttleTime(5000), Rx.filter(s => s.isSynced))
+  );
   const walletProvider = {
-    getCoinPublicKey:       () => '',
-    getEncryptionPublicKey: () => '',
+    getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),
+    getEncryptionPublicKey: () => state.shielded.encryptionPublicKey.toHexString(),
     async balanceTx(tx, ttl) {
       const recipe = await wallet.balanceUnboundTransaction(
         tx,
