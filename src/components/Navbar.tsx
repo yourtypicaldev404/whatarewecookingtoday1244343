@@ -18,7 +18,7 @@ export default function Navbar() {
 
       <div style={{ display:'flex', gap:2, marginLeft:8 }}>
         {[['/', 'Discover'],['/launch','Launch'],['/portfolio','Portfolio']].map(([href, label]) => (
-          <Link key={href} href={href} style={{ fontFamily:'var(--font-display)', fontWeight:500, fontSize:13, color: pathname===href ? '#fff' : 'var(--text-secondary)', textDecoration:'none', padding:'5px 12px', borderRadius:7, background: pathname===href ? 'rgba(255,255,255,0.07)' : 'transparent' }}>
+          <Link key={href} href={href} style={{ fontFamily:'var(--font-display)', fontWeight:500, fontSize:17, color: pathname===href ? '#fff' : 'var(--text-secondary)', textDecoration:'none', padding:'7px 16px', borderRadius:7, background: pathname===href ? 'rgba(255,255,255,0.07)' : 'transparent' }}>
             {label}
           </Link>
         ))}
@@ -44,7 +44,7 @@ export default function Navbar() {
           }
         }}
         disabled={connecting}
-        style={{ display:'flex', alignItems:'center', gap:6, background: connected ? 'var(--night-raised)' : 'linear-gradient(135deg,var(--neon-violet),#6d28d9)', color:'#fff', border: connected ? '1px solid var(--night-border-active)' : 'none', borderRadius:9, padding:'6px 14px', fontFamily:'var(--font-display)', fontWeight:600, fontSize:12, cursor:'pointer', flexShrink:0 }}>
+        style={{ display:'flex', alignItems:'center', gap:6, background: connected ? 'var(--night-raised)' : 'linear-gradient(135deg,var(--neon-violet),#6d28d9)', color:'#fff', border: connected ? '1px solid var(--night-border-active)' : 'none', borderRadius:9, padding:'8px 18px', fontFamily:'var(--font-display)', fontWeight:600, fontSize:16, cursor:'pointer', flexShrink:0 }}>
         {connected ? (
           <><span style={{ width:6, height:6, borderRadius:'50%', background:'var(--neon-green)', boxShadow:'0 0 5px var(--neon-green)' }} />Connected</>
         ) : connecting ? '⏳ Connecting…' : <>🌙 Connect Lace</>}
