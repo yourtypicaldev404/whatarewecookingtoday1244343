@@ -1,4 +1,4 @@
-import { PUBLIC_NETWORK_ID } from '@/lib/network';
+import { PUBLIC_NETWORK_ID, PUBLIC_NETWORK_LABEL } from '@/lib/network';
 
 export type WalletErrorPresentation = {
   title: string;
@@ -24,7 +24,7 @@ export function getWalletErrorPresentation(raw: string): WalletErrorPresentation
     return {
       title: 'Network does not match',
       body:
-        `This site is set to "${expected}". In Lace open Settings → Midnight → Configure Midnight Nodes and choose the same network (Preview matches this app until mainnet). ` +
+        `This site is set to "${expected}" (${PUBLIC_NETWORK_LABEL}). In Lace open Settings → Midnight → Configure Midnight Nodes and choose the same network. ` +
         `If you deploy the app yourself, set NEXT_PUBLIC_NETWORK_ID to match your wallet.`,
       variant: 'network',
     };

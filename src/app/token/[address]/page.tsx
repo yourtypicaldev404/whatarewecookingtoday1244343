@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
 import { executeTrade } from '@/lib/contractWiring';
+import { MIDNIGHT_NETWORK_CAPTION } from '@/lib/network';
 
 export default function TokenPage() {
   const { address } = useParams<{ address: string }>();
@@ -21,7 +22,7 @@ export default function TokenPage() {
       .then(({ tokens }) => {
         const found = tokens?.find((t: any) => t.address === address);
         if (found) setToken(found);
-        else setToken({ address, name: address?.slice(0,8)+'...', ticker: 'UNK', description: 'Token on Midnight Preprod', adaReserve:'0', tokenReserve:'999000000000000', totalVolume:'0', txCount:0, holderCount:1, graduated:false, lockedPercent:0 });
+        else setToken({ address, name: address?.slice(0,8)+'...', ticker: 'UNK', description: `Token on ${MIDNIGHT_NETWORK_CAPTION}`, adaReserve:'0', tokenReserve:'999000000000000', totalVolume:'0', txCount:0, holderCount:1, graduated:false, lockedPercent:0 });
       });
   }, [address]);
 
@@ -237,7 +238,7 @@ export default function TokenPage() {
                     ? `Buy ${token.ticker}`
                     : `Sell ${token.ticker}`}
               </button>
-              <div style={{ textAlign:'center', fontFamily:'var(--font-mono)', fontSize:10, color:'var(--text-muted)', marginTop:8 }}>Non-custodial · ZK-protected · Midnight Preprod</div>
+              <div style={{ textAlign:'center', fontFamily:'var(--font-mono)', fontSize:10, color:'var(--text-muted)', marginTop:8 }}>Non-custodial · ZK-protected · {MIDNIGHT_NETWORK_CAPTION}</div>
             </div>
           </div>
         </div>

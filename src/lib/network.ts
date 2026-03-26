@@ -1,19 +1,39 @@
 /**
- * Public Midnight network for wallet connect() and UI.
- * Defaults to Preview until mainnet; override with NEXT_PUBLIC_NETWORK_ID.
+ * Single source of truth for Midnight network across the app.
+ *
+ * Switch networks (Preview / Preprod / Mainnet) in one place:
+ *   NEXT_PUBLIC_NETWORK_ID=preview | preprod | mainnet
+ *
+ * Optional overrides:
+ *   NEXT_PUBLIC_NETWORK_LABEL   — display name (default: derived from id, e.g. mainnet → Mainnet)
+ *   NEXT_PUBLIC_FAUCET_URL      — set to empty to hide testnet faucet; unset = default per network
  */
+
 export const PUBLIC_NETWORK_ID =
   process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preview';
 
-/** Faucet for test tokens — override with NEXT_PUBLIC_FAUCET_URL if needed. */
-export const PUBLIC_FAUCET_URL =
-  process.env.NEXT_PUBLIC_FAUCET_URL ??
-  (PUBLIC_NETWORK_ID === 'preprod'
-    ? 'https://faucet.preprod.midnight.network'
-    : 'https://faucet.preview.midnight.network');
+function defaultLabelForId(id: string): string {
+  const lower = id.toLowerCase();
+  if (lower === 'mainnet') return 'Mainnet';
+  return id.charAt(0).toUpperCase() + id.slice(1).toLowerCase();
+}
 
-/** Short label for badges (Preview / Preprod / custom). */
+/** Badge / buttons / copy: Preview, Preprod, Mainnet, or custom from env */
 export const PUBLIC_NETWORK_LABEL =
-  process.env.NEXT_PUBLIC_NETWORK_LABEL ??
-  (PUBLIC_NETWORK_ID.charAt(0).toUpperCase() +
-    PUBLIC_NETWORK_ID.slice(1).toLowerCase());
+  process.env.NEXT_PUBLIC_NETWORK_LABEL ?? defaultLabelForId(PUBLIC_NETWORK_ID);
+
+/**
+ * Default testnet faucet URLs; mainnet has no public faucet here.
+ * Explicit NEXT_PUBLIC_FAUCET_URL (including empty string) wins.
+ */
+export const PUBLIC_FAUCET_URL: string | null = (() => {
+  const explicit = process.env.NEXT_PUBLIC_FAUCET_URL;
+  if (explicit !== undefined) return explicit.trim() || null;
+  const id = PUBLIC_NETWORK_ID.toLowerCase();
+  if (id === 'mainnet') return null;
+  if (id === 'preprod') return 'https://faucet.preprod.midnight.network';
+  return 'https://faucet.preview.midnight.network';
+})();
+
+/** Footers and descriptions: "Midnight Preview", "Midnight Mainnet", etc. */
+export const MIDNIGHT_NETWORK_CAPTION = `Midnight ${PUBLIC_NETWORK_LABEL}`;

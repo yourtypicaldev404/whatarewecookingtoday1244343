@@ -32,7 +32,7 @@ User → nightdotfun.vercel.app (Next.js)
 ↓
 /api/deploy → Railway deploy server
 ↓
-Midnight SDK → ZK Proof → Midnight Preprod
+Midnight SDK → ZK Proof → Midnight (`NEXT_PUBLIC_NETWORK_ID`, see `src/lib/network.ts`)
 ↓
 Contract address saved to Upstash KV
 ↓
@@ -47,7 +47,7 @@ Token page live at /token/[address]
 - [x] 4-step token launch wizard
 - [x] Token page with bonding curve progress, buy/sell UI, price chart
 - [x] Real ZK contract deploy — every token launch deploys a real Midnight contract
-- [x] Wallet connect via Lace (Preprod)
+- [x] Wallet connect via Lace (network from env; default Preview in `src/lib/network.ts`)
 - [x] Token registry persists to Upstash Redis
 - [x] Token images upload to IPFS via Pinata
 - [x] Social links (Twitter, Telegram, website, Discord)
@@ -70,12 +70,16 @@ Token page live at /token/[address]
 - [ ] **Graduation flow** — when bonding curve hits 69,000 DUST target, auto-list on NorthStar DEX
 - [ ] **Real token balances** — track holder counts and balances from indexer
 
-### Mainnet Switch (end of day)
+### Mainnet (or any network) switch
+
+All UI and `wallet.connect()` use **`src/lib/network.ts`** (reads `NEXT_PUBLIC_NETWORK_ID` and optional `NEXT_PUBLIC_NETWORK_LABEL`). Set indexer/RPC/proof URLs in `.env` to match that network, then redeploy.
 
 ```bash
-vercel env add NEXT_PUBLIC_NETWORK_ID    # mainnet
-vercel env add NEXT_PUBLIC_INDEXER_URL   # https://indexer.midnight.network/api/v3/graphql
-vercel env add NEXT_PUBLIC_INDEXER_WS    # wss://indexer.midnight.network/api/v3/graphql/ws
+# Example — mainnet (URLs must match Midnight docs for your release)
+vercel env add NEXT_PUBLIC_NETWORK_ID mainnet
+vercel env add NEXT_PUBLIC_FAUCET_URL ""
+vercel env add NEXT_PUBLIC_INDEXER_HTTP …
+vercel env add NEXT_PUBLIC_INDEXER_WS …
 vercel --prod
 ```
 
@@ -123,8 +127,8 @@ PINATA_JWT=
 DEPLOY_SERVER_URL=https://whatarewecookingtoday1244343-production.up.railway.app/
 NEXT_PUBLIC_DEPLOY_SERVER_URL=https://whatarewecookingtoday1244343-production.up.railway.app/
 
-# Network
-NEXT_PUBLIC_NETWORK_ID=preprod
+# Network (preview | preprod | mainnet — see .env.example)
+NEXT_PUBLIC_NETWORK_ID=preview
 ```
 
 ---
@@ -138,7 +142,7 @@ NEXT_PUBLIC_NETWORK_ID=preprod
 - Graduation target: 69,000 DUST
 - Witnesses: `treasurySecretKey`
 
-**Working deploy seed (Preprod)**
+**Working deploy seed (testnet example)**
 - Address: `mn_addr_preprod1zecl9jk3e2k7dghga8wqja6y5nanx6f4cew26naanwveulawwnpsv67ffc`
 - Stored in `deployment.json`
 

@@ -2,13 +2,13 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { PUBLIC_NETWORK_ID } from '@/lib/network';
+import { PUBLIC_NETWORK_ID, PUBLIC_NETWORK_LABEL } from '@/lib/network';
 
 export default function LaunchPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [deploying, setDeploying] = useState(false);
-  const [preview, setPreview] = useState(null);
+  const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [form, setForm] = useState({ name:'', ticker:'', description:'', website:'', twitter:'', telegram:'', discord:'', initialBuy:'0' });
   const fileRef = useRef(null);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -66,7 +66,7 @@ export default function LaunchPage() {
           <h1 style={{ fontSize:30, fontWeight:800, letterSpacing:'-0.03em', margin:'10px 0 6px' }}>
             Launch on <span className="gradient-text">night.fun</span>
           </h1>
-          <p style={{ color:'var(--text-secondary)', fontSize:14 }}>Deploy your bonding curve to Preprod. 1B supply. ₾69k graduation.</p>
+          <p style={{ color:'var(--text-secondary)', fontSize:14 }}>Deploy your bonding curve to {PUBLIC_NETWORK_LABEL}. 1B supply. ₾69k graduation.</p>
         </div>
 
         <div style={{ display:'flex', marginBottom:28 }}>
@@ -89,10 +89,10 @@ export default function LaunchPage() {
               <h2 style={{ fontSize:18, marginBottom:20 }}>Token information</h2>
               <div style={{ marginBottom:18 }}>
                 <label style={{ display:'block', fontFamily:'var(--font-mono)', fontSize:10, color:'var(--text-secondary)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:5 }}>Token icon</label>
-                <div onClick={() => fileRef.current?.click()} style={{ border:`2px dashed ${preview ? 'var(--neon-violet)' : 'var(--night-border)'}`, borderRadius:12, padding:28, textAlign:'center', cursor:'pointer', background:'var(--night-deep)', display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
-                  {preview ? <img src={preview} style={{ width:88, height:88, borderRadius:14, objectFit:'cover' }} /> : <><div style={{ fontSize:36 }}>🌙</div><div style={{ color:'var(--text-secondary)', fontSize:13 }}>Click to upload</div></>}
+                <div onClick={() => fileRef.current?.click()} style={{ border:`2px dashed ${iconPreview ? 'var(--neon-violet)' : 'var(--night-border)'}`, borderRadius:12, padding:28, textAlign:'center', cursor:'pointer', background:'var(--night-deep)', display:'flex', flexDirection:'column', alignItems:'center', gap:10 }}>
+                  {iconPreview ? <img src={iconPreview} alt="" style={{ width:88, height:88, borderRadius:14, objectFit:'cover' }} /> : <><div style={{ fontSize:36 }}>🌙</div><div style={{ color:'var(--text-secondary)', fontSize:13 }}>Click to upload</div></>}
                 </div>
-                <input ref={fileRef} type="file" accept="image/*" onChange={e => { const f=e.target.files?.[0]; if(f){const r=new FileReader();r.onload=ev=>setPreview(ev.target?.result);r.readAsDataURL(f);}}} style={{ display:'none' }} />
+                <input ref={fileRef} type="file" accept="image/*" onChange={e => { const f=e.target.files?.[0]; if(f){const r=new FileReader();r.onload=ev=>setIconPreview(typeof ev.target?.result === 'string' ? ev.target.result : null);r.readAsDataURL(f);}}} style={{ display:'none' }} />
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
                 <div>
@@ -154,7 +154,7 @@ export default function LaunchPage() {
             <div>
               <h2 style={{ fontSize:18, marginBottom:18 }}>Review & launch 🚀</h2>
               <div style={{ display:'flex', gap:16, marginBottom:20, alignItems:'flex-start' }}>
-                {preview && <img src={preview} style={{ width:76, height:76, borderRadius:14, objectFit:'cover', border:'2px solid rgba(139,92,246,.3)', flexShrink:0 }} />}
+                {iconPreview && <img src={iconPreview} alt="" style={{ width:76, height:76, borderRadius:14, objectFit:'cover', border:'2px solid rgba(139,92,246,.3)', flexShrink:0 }} />}
                 <div>
                   <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:4 }}>
                     <span style={{ fontWeight:800, fontSize:20 }}>{form.name||'—'}</span>
@@ -164,7 +164,7 @@ export default function LaunchPage() {
                 </div>
               </div>
               <div style={{ background:'rgba(139,92,246,.05)', border:'1px solid rgba(139,92,246,.15)', borderRadius:11, padding:14, marginBottom:20 }}>
-                {[['Total supply','1,000,000,000 tokens'],['Graduation','₾69,000 DUST'],['Trade fee','1% per trade'],['Network','Midnight Preprod']].map(([k,v])=>(
+                {[['Total supply','1,000,000,000 tokens'],['Graduation','₾69,000 DUST'],['Trade fee','1% per trade'],['Network',`Midnight ${PUBLIC_NETWORK_LABEL}`]].map(([k,v])=>(
                   <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
                     <span style={{ fontSize:12, color:'var(--text-muted)' }}>{k}</span>
                     <span style={{ fontFamily:'var(--font-mono)', fontSize:12, color:'var(--text-secondary)' }}>{v}</span>
@@ -172,7 +172,7 @@ export default function LaunchPage() {
                 ))}
               </div>
               <button className="btn btn-primary" style={{ width:'100%', fontSize:15, padding:14 }} onClick={handleLaunch}>
-                🚀 Launch {form.ticker||'token'} on Preprod
+                🚀 Launch {form.ticker || 'token'} on {PUBLIC_NETWORK_LABEL}
               </button>
             </div>
           )}

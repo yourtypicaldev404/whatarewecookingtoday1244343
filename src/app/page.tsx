@@ -84,9 +84,11 @@ export default function HomePage() {
             <Link href="/launch">
               <button className="btn btn-primary" style={{ fontSize: 15, padding: '12px 26px' }}>🚀 Launch a token</button>
             </Link>
-            <a href={PUBLIC_FAUCET_URL} target="_blank" rel="noopener noreferrer">
-              <button className="btn btn-secondary" style={{ fontSize: 15, padding: '12px 26px' }}>🚰 Get testnet DUST</button>
-            </a>
+            {PUBLIC_FAUCET_URL ? (
+              <a href={PUBLIC_FAUCET_URL} target="_blank" rel="noopener noreferrer">
+                <button type="button" className="btn btn-secondary" style={{ fontSize: 15, padding: '12px 26px' }}>🚰 Get testnet DUST</button>
+              </a>
+            ) : null}
           </div>
 
           {/* Stats */}
@@ -196,7 +198,7 @@ export default function HomePage() {
         {/* ── Token grid ───────────────────────────────────────────────── */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
-            Loading tokens from Preprod…
+            Loading tokens from {PUBLIC_NETWORK_LABEL}…
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
