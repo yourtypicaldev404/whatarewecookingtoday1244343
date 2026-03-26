@@ -85,8 +85,9 @@ function tradeBuildErrorMessage(status: number, body: string): string {
   }
   if (!generic && /no public state found at contract address/i.test(t)) {
     return (
-      'This token has no on-chain contract on the network your indexer uses (often wrong network vs where the token was launched). ' +
-      'Use the same Preview/Preprod in Lace, Vercel, and Railway. ' +
+      'Contract not found on the indexer. On testnets this usually means the network was reset after your token was deployed — redeploy your token. ' +
+      'If this is a freshly deployed token, wait 30–60 s for the indexer to catch up and try again. ' +
+      'On mainnet, verify Lace, Vercel, and Railway all use the same network. ' +
       t
     );
   }

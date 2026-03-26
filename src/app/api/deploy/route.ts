@@ -19,29 +19,21 @@ export async function POST(req: NextRequest) {
 
     // Deploy real contract via deploy server
     const deployServerUrl = process.env.DEPLOY_SERVER_URL ?? 'http://localhost:3001';
-    
-    let contractAddress: string;
-    let txId: string;
 
-    try {
-      const deployRes = await fetch(`${deployServerUrl}/deploy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, ticker }),
-        signal: AbortSignal.timeout(240_000), // 4 min timeout
-      });
+    const deployRes = await fetch(`${deployServerUrl}/deploy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, ticker }),
+      signal: AbortSignal.timeout(240_000), // 4 min timeout
+    });
 
-      if (!deployRes.ok) throw new Error(`Deploy server error: ${deployRes.status}`);
-      const deployData = await deployRes.json();
-      contractAddress = deployData.contractAddress;
-      txId = deployData.txId;
-    } catch (deployErr: any) {
-      // Fallback to mock address if deploy server not available
-      console.warn('Deploy server unavailable, using mock:', deployErr.message);
-      contractAddress = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
-      txId = 'mock-' + Date.now();
+    if (!deployRes.ok) {
+      const errText = await deployRes.text().catch(() => String(deployRes.status));
+      let errMsg = errText;
+      try { errMsg = (JSON.parse(errText) as { error?: string }).error ?? errText; } catch {}
+      throw new Error(`Deploy failed: ${errMsg}`);
     }
+    const { contractAddress, txId } = await deployRes.json();
 
     // Save to registry
     const tokens: any[] = (await redis.get('tokens')) ?? [];

@@ -26,6 +26,25 @@ export default function TokenPage() {
   const [tradePhase, setTradePhase] = useState<'server' | 'wallet' | null>(null);
   const [tradeProfile, setTradeProfile] = useState<TradeBuildProfile | null>(null);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [contractMissing, setContractMissing] = useState(false);
+
+  useEffect(() => {
+    if (!address) return;
+    fetch('/api/trade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contractAddress: address, action: 'buy', adaIn: '1000000', tokensOut: '1' }),
+    }).then(async r => {
+      if (!r.ok) {
+        const text = await r.text();
+        let msg = text;
+        try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
+        if (/no public state found at contract address/i.test(msg)) {
+          setContractMissing(true);
+        }
+      }
+    }).catch(() => {});
+  }, [address]);
 
   useEffect(() => {
     fetch('/api/tokens?limit=100')
@@ -214,6 +233,16 @@ export default function TokenPage() {
           </div>
 
           <div style={{ position:'sticky', top:72 }}>
+            {contractMissing && (
+              <div style={{ background:'rgba(251,113,133,.1)', border:'1px solid rgba(251,113,133,.35)', borderRadius:10, padding:'12px 14px', marginBottom:12, fontFamily:'var(--font-mono)', fontSize:12 }}>
+                <div style={{ fontWeight:700, color:'var(--neon-rose)', marginBottom:4 }}>Contract not found on-chain</div>
+                <div style={{ color:'var(--text-secondary)', lineHeight:1.5 }}>
+                  This token's contract no longer exists on the indexer. The testnet was likely reset after it was deployed.
+                  <br />
+                  <a href="/launch" style={{ color:'var(--neon-violet-bright)', textDecoration:'underline', marginTop:4, display:'inline-block' }}>Launch a new token →</a>
+                </div>
+              </div>
+            )}
             <div className="glass" style={{ padding:18 }}>
               <div style={{ display:'flex', background:'var(--night-deep)', border:'1px solid var(--night-border)', borderRadius:10, padding:3, gap:2, marginBottom:16 }}>
                 {['buy','sell'].map(mode => (
@@ -271,8 +300,8 @@ export default function TokenPage() {
               <button
                 className={`btn btn-${tradeMode}`}
                 onClick={handleTrade}
-                disabled={trading || !amount || !quote}
-                style={{ opacity: (trading || !amount || !quote) ? 0.6 : 1, cursor: (trading || !amount || !quote) ? 'not-allowed' : 'pointer' }}
+                disabled={trading || !amount || !quote || contractMissing}
+                style={{ opacity: (trading || !amount || !quote || contractMissing) ? 0.6 : 1, cursor: (trading || !amount || !quote || contractMissing) ? 'not-allowed' : 'pointer' }}
               >
                 {trading
                   ? 'Working…'
