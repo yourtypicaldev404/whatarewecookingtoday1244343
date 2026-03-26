@@ -162,8 +162,8 @@ function deriveShieldedKeysFromSeed(seed) {
   })();
   const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
   return {
-    getCoinPublicKey: () => shieldedSK.coinPublicKey().toHexString(),
-    getEncryptionPublicKey: () => shieldedSK.encryptionPublicKey().toHexString(),
+    getCoinPublicKey: () => shieldedSK.coinPublicKey,
+    getEncryptionPublicKey: () => shieldedSK.encryptionPublicKey,
   };
 }
 const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
