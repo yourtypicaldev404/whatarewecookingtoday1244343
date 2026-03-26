@@ -115,7 +115,7 @@ setNetworkId(NETWORK_ID);
 
 /** Default hosted provers — Railway/cloud has no localhost prover; local dev overrides via .env.local or docker compose. */
 const PROOF_DEFAULT_BY_NETWORK = {
-  preview: 'https://proof-server.preview.midnight.network',
+  preview: 'https://lace-proof-pub.preview.midnight.network',
   preprod: 'https://lace-proof-pub.preprod.midnight.network',
 };
 
