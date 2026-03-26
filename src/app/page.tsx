@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import TokenCard from '@/components/TokenCard';
-import type { TokenRecord } from '@/app/api/tokens/route';
+type TokenRecord = any;
 import {
   fmtDust, fmtMcap, bondingProgress, spotPrice, kothScore,
 } from '@/lib/midnight/bondingCurve';

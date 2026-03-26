@@ -1,7 +1,8 @@
+type TokenRecord = any;
 'use client';
 
 import Link from 'next/link';
-import type { TokenRecord } from '@/app/api/tokens/route';
+
 import { fmtDust, fmtMcap, bondingProgress, spotPrice, timeAgo } from '@/lib/midnight/bondingCurve';
 
 export default function TokenCard({ token }: { token: TokenRecord }) {

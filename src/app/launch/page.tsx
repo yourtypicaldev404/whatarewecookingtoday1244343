@@ -28,10 +28,10 @@ export default function LaunchPage() {
       const creatorKey = crypto.randomUUID().replace(/-/g,"").padEnd(64,"0");
       alert("Generating ZK proof and deploying... this takes ~30 seconds");
       const result = await deployBondingCurveViaWallet({
-        creatorSkHex: creatorKey,
-        treasurySkHex: treasuryKey,
-        walletAPI: api,
-        config,
+        name: form.name,
+        ticker: form.ticker,
+        description: form.description,
+        imageUri: "ipfs://",
       });
       alert("Deployed! Contract: " + result.contractAddress);
       await fetch("/api/tokens", {
