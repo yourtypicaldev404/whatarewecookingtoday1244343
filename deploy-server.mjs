@@ -84,18 +84,24 @@ const NETWORK_DEFAULTS = {
 const NETWORK_ID = (process.env.NETWORK_ID ?? 'preview').toLowerCase();
 const defaults = NETWORK_DEFAULTS[NETWORK_ID] ?? null;
 
+/**
+ * Indexer / RPC resolution (deploy server only):
+ * 1) INDEXER_HTTP / INDEXER_WS / NODE_RPC — explicit override
+ * 2) URLs derived from NETWORK_ID (preview vs preprod)
+ * 3) NEXT_PUBLIC_* — last (Railway often mixes Preprod indexer with NETWORK_ID=preview; that breaks trades)
+ */
 const INDEXER =
   process.env.INDEXER_HTTP ??
-  process.env.NEXT_PUBLIC_INDEXER_HTTP ??
-  defaults?.INDEXER;
+  defaults?.INDEXER ??
+  process.env.NEXT_PUBLIC_INDEXER_HTTP;
 const INDEXERWS =
   process.env.INDEXER_WS ??
-  process.env.NEXT_PUBLIC_INDEXER_WS ??
-  defaults?.INDEXERWS;
+  defaults?.INDEXERWS ??
+  process.env.NEXT_PUBLIC_INDEXER_WS;
 const NODE =
   process.env.NODE_RPC ??
-  process.env.NEXT_PUBLIC_MIDNIGHT_NODE_URL ??
-  defaults?.NODE;
+  defaults?.NODE ??
+  process.env.NEXT_PUBLIC_MIDNIGHT_NODE_URL;
 
 if (!INDEXER || !INDEXERWS || !NODE) {
   console.error(
@@ -115,8 +121,8 @@ const PROOF_DEFAULT_BY_NETWORK = {
 
 const PROOF =
   process.env.PROOF_SERVER_URL ??
-  process.env.NEXT_PUBLIC_PROOF_SERVER ??
   PROOF_DEFAULT_BY_NETWORK[NETWORK_ID] ??
+  process.env.NEXT_PUBLIC_PROOF_SERVER ??
   'http://127.0.0.1:6300';
 const SEED      = process.env.DEPLOYER_SEED ?? '971da3750a45a3812c732f8b70ccb9d8c7e7b55e65700b87f5346fc1c7d1a952';
 const TREASURY  = process.env.TREASURY_SEED ?? SEED;

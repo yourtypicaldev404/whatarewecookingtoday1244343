@@ -10,7 +10,7 @@ Use **one** network end-to-end. Mismatch (e.g. Lace on Preprod, indexer on Previ
 |-------|-----|
 | **Lace** | Settings → Midnight → **Preview** node + prover URL for Preview |
 | **Vercel** | `NEXT_PUBLIC_NETWORK_ID=preview` and Preview indexer/RPC/proof from `.env.example` |
-| **Railway (deploy server)** | **`NETWORK_ID=preview` only** — do **not** set `NEXT_PUBLIC_NETWORK_ID` here (it can override to the wrong network). Also `PROOF_SERVER_URL=https://proof-server.preview.midnight.network` if needed. |
+| **Railway (deploy server)** | **`NETWORK_ID=preview` only** — do **not** set `NEXT_PUBLIC_NETWORK_ID` here. Indexer/RPC: deploy-server uses URLs from **`NETWORK_ID`** first; stray **`NEXT_PUBLIC_INDEXER_*` / `NEXT_PUBLIC_MIDNIGHT_NODE_URL`** pointing at Preprod while `NETWORK_ID=preview` used to break trades — fixed in code, but clean up Railway vars to Preview URLs or remove duplicates. |
 
 Copy values from `.env.example` (top section — already Preview). Do not mix Preprod URLs with `NEXT_PUBLIC_NETWORK_ID=preview`.
 
