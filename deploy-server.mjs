@@ -120,6 +120,28 @@ const PORT      = process.env.PORT ?? process.env.DEPLOY_SERVER_PORT ?? 3001;
 // Import contract
 const { Contract } = await import('./contracts/managed/bonding_curve/contract/index.js');
 
+// Derive shielded keys once at startup (no wallet sync needed).
+// Used as walletProvider stub for createUnprovenCallTx — buy/sell circuits have no
+// shielded outputs so the actual key values don't affect the trade result.
+function deriveShieldedKeysFromSeed(seed) {
+  const keys = (() => {
+    const hd = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
+    if (hd.type !== 'seedOk') throw new Error('Bad seed for shielded key derivation');
+    const r = hd.hdWallet.selectAccount(0)
+      .selectRoles([Roles.Zswap, Roles.NightExternal, Roles.Dust])
+      .deriveKeysAt(0);
+    if (r.type !== 'keysDerived') throw new Error('Key derivation failed');
+    hd.hdWallet.clear();
+    return r.keys;
+  })();
+  const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
+  return {
+    getCoinPublicKey: () => shieldedSK.coinPublicKey().toHexString(),
+    getEncryptionPublicKey: () => shieldedSK.encryptionPublicKey().toHexString(),
+  };
+}
+const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
+
 function deriveKeys(seed) {
   const hd = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
   if (hd.type !== 'seedOk') throw new Error('Bad seed');
@@ -288,7 +310,7 @@ app.post('/trade/build', async (req, res) => {
     const providers = {
       zkConfigProvider: zkConfig,
       publicDataProvider,
-      walletProvider: {},
+      walletProvider: TRADE_WALLET_PROVIDER,
     };
 
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
