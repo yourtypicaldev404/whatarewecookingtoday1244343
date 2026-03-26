@@ -6,6 +6,7 @@ import Navbar from '@/components/Navbar';
 export default function LaunchPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [deploying, setDeploying] = useState(false);
   const [preview, setPreview] = useState(null);
   const [form, setForm] = useState({ name:'', ticker:'', description:'', website:'', twitter:'', telegram:'', discord:'', initialBuy:'0' });
   const fileRef = useRef(null);

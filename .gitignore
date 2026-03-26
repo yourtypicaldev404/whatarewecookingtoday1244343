@@ -11,3 +11,6 @@ night-fun.db
 .vercel
 token-registry.json
 .env*.local
+midnight-level-db/
+night-fun-state/
+*.ldb
