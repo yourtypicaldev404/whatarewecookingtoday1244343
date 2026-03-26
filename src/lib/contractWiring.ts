@@ -47,14 +47,16 @@ export async function deployBondingCurveViaWallet(
   // Step 2: Lace proves + balances (pops up for user to approve)
   const balanced = await wallet.balanceUnsealedTransaction(unprovenTxHex);
 
-  // Step 3: derive tx id and submit
+  // Step 3: derive tx id, then fire-and-forget submit.
+  // submitTransaction can hang indefinitely waiting for node ACK — we already have
+  // the contractAddress and txId so we don't need to block on it.
   let txId: string;
   try {
     txId = txIdFromBalancedHex(balanced.tx);
   } catch {
     txId = `pending-${Date.now()}`;
   }
-  await wallet.submitTransaction(balanced.tx);
+  wallet.submitTransaction(balanced.tx).catch(e => console.error('submitTransaction error:', e));
 
   return { contractAddress, txId };
 }
@@ -172,7 +174,7 @@ export async function finalizeTradeInWallet(
   } catch {
     txId = `pending-${Date.now()}`;
   }
-  await wallet.submitTransaction(balanced.tx);
+  wallet.submitTransaction(balanced.tx).catch(e => console.error('submitTransaction error:', e));
   const walletMs = Math.round(
     (typeof performance !== 'undefined' ? performance.now() : Date.now()) - w0,
   );
