@@ -242,6 +242,9 @@ app.post('/trade/build', async (req, res) => {
   }
 
   try {
+    const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const elapsed = () => Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0);
+
     const stubWallet = {
       getCoinPublicKey: () => coinPublicKeyHex,
       getEncryptionPublicKey: () => shieldedEncryptionPublicKeyHex,
@@ -267,21 +270,65 @@ app.post('/trade/build', async (req, res) => {
         ? [BigInt(adaIn), BigInt(tokensOut)]
         : [BigInt(tokensIn), BigInt(adaOut)];
 
+    const tBeforeUnproven = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const unsubmitted = await createUnprovenCallTx(providers, {
       compiledContract,
       contractAddress,
       circuitId: action === 'buy' ? 'buy' : 'sell',
       args,
     });
+    const createUnprovenMs = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeUnproven,
+    );
 
     const tx = unsubmitted.private.unprovenTx;
+    const tBeforeStates = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const { ledgerParameters } = await getPublicStates(publicDataProvider, contractAddress);
+    const publicStatesMs = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeStates,
+    );
+
     const costModel = ledgerParameters.transactionCostModel.runtimeCostModel;
     const proofProvider = httpClientProofProvider(PROOF, zkConfig);
+    const tBeforeProve = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const proven = await tx.prove(proofProvider, costModel);
-    const provenTxHex = Buffer.from(proven.serialize()).toString('hex');
+    const proveMs = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeProve,
+    );
 
-    res.json({ provenTxHex, contractAddress, action });
+    const tBeforeSerialize = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const provenTxHex = Buffer.from(proven.serialize()).toString('hex');
+    const serializeMs = Math.round(
+      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeSerialize,
+    );
+
+    const profile = {
+      createUnprovenMs,
+      publicStatesMs,
+      proveMs,
+      serializeMs,
+      serverTotalMs: elapsed(),
+      proofServerHost: (() => {
+        try {
+          return new URL(PROOF).host;
+        } catch {
+          return 'unknown';
+        }
+      })(),
+    };
+
+    console.log(
+      JSON.stringify({
+        tradeProfile: {
+          action,
+          contractAddress,
+          ...profile,
+          note: 'proveMs is ZK proving; createUnprovenMs+publicStatesMs is indexer/ledger setup',
+        },
+      }),
+    );
+
+    res.json({ provenTxHex, contractAddress, action, profile });
   } catch (err) {
     console.error('Trade build failed:', err.message);
     res.status(500).json({ error: err.message });
@@ -291,5 +338,5 @@ app.post('/trade/build', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Night.fun deploy server running on port ${PORT}`);
   console.log(`Network: ${NETWORK_ID} · indexer ${INDEXER}`);
-  console.log(`Proof server: ${PROOF}`);
+  console.log(`Proof server: ${PROOF} (co-locate deploy + proof in the same region to cut latency)`);
 });

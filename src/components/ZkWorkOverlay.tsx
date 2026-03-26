@@ -1,5 +1,7 @@
 'use client';
 
+import type { TradeBuildProfile } from '@/lib/contractWiring';
+
 /**
  * In-page blocking UI for long ZK / server work (no browser alert() / Notification).
  */
@@ -10,6 +12,8 @@ export default function ZkWorkOverlay({
   error,
   onDismiss,
   variant = 'proving',
+  tradePhase = 'server',
+  tradeProfile,
 }: {
   open: boolean;
   title?: string;
@@ -18,10 +22,38 @@ export default function ZkWorkOverlay({
   onDismiss?: () => void;
   /** proving = spinner + indeterminate bar; saving = same with different copy */
   variant?: 'proving' | 'saving' | 'trade';
+  /** For variant trade: server = remote prove; wallet = Lace balance + submit */
+  tradePhase?: 'server' | 'wallet';
+  /** Shown during wallet phase — proof step already finished on server */
+  tradeProfile?: TradeBuildProfile | null;
 }) {
   if (!open) return null;
 
   const isError = Boolean(error);
+
+  const tradeTitle =
+    variant === 'trade'
+      ? tradePhase === 'wallet'
+        ? 'Approve in Lace'
+        : 'Generating ZK proof…'
+      : title;
+
+  const tradeSubtitle =
+    variant === 'trade'
+      ? tradePhase === 'wallet'
+        ? 'Balance fees, sign, and submit. This step is quick once you approve in the wallet.'
+        : 'Building the transaction on the server and running the ZK prover. This is usually the slow part (often 30–90s). Keep this tab open.'
+      : variant === 'saving'
+        ? subtitle
+        : subtitle;
+
+  const profileLine =
+    variant === 'trade' && tradePhase === 'wallet' && tradeProfile
+      ? `Proof: ${(tradeProfile.proveMs / 1000).toFixed(1)}s · Setup: ${(
+          (tradeProfile.createUnprovenMs + tradeProfile.publicStatesMs) /
+          1000
+        ).toFixed(1)}s`
+      : null;
 
   return (
     <div
@@ -64,15 +96,24 @@ export default function ZkWorkOverlay({
                 lineHeight: 1.3,
               }}
             >
-              {variant === 'trade' ? 'Signing & proving…' : title}
+              {variant === 'trade' ? tradeTitle : title}
             </h2>
-            <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 22 }}>
-              {variant === 'trade'
-                ? 'Creating the ZK proof and submitting through the network. Do not close this tab.'
-                : variant === 'saving'
-                  ? 'Saving your token to the registry…'
-                  : subtitle}
+            <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: profileLine ? 8 : 22 }}>
+              {variant === 'trade' ? tradeSubtitle : subtitle}
             </p>
+            {profileLine ? (
+              <p
+                style={{
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  fontFamily: 'var(--font-mono)',
+                  marginBottom: 22,
+                  lineHeight: 1.4,
+                }}
+              >
+                {profileLine}
+              </p>
+            ) : null}
             <div className="zk-progress-track">
               <div className="zk-progress-indeterminate" />
             </div>

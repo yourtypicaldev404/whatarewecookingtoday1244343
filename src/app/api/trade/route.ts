@@ -16,12 +16,14 @@ export async function POST(req: NextRequest) {
   );
 
   try {
+    const t0 = performance.now();
     const res = await fetch(`${deployServerUrl}/trade/build`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(240_000),
     });
+    const proxyRoundTripMs = Math.round(performance.now() - t0);
 
     const text = await res.text();
     if (!res.ok) {
@@ -35,7 +37,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: msg }, { status: res.status });
     }
 
-    return NextResponse.json(JSON.parse(text));
+    const payload = JSON.parse(text) as Record<string, unknown>;
+    const profile = payload.profile as Record<string, unknown> | undefined;
+    if (profile && typeof profile === 'object') {
+      payload.profile = { ...profile, proxyRoundTripMs };
+    } else {
+      payload.profile = { proxyRoundTripMs };
+    }
+    return NextResponse.json(payload);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Trade proxy failed';
     return NextResponse.json(

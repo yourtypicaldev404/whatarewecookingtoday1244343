@@ -5,7 +5,12 @@ import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import ZkWorkOverlay from '@/components/ZkWorkOverlay';
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
-import { executeTradeWithWallet, type TradeParams } from '@/lib/contractWiring';
+import {
+  buildTradeProvenTx,
+  finalizeTradeInWallet,
+  type TradeParams,
+  type TradeBuildProfile,
+} from '@/lib/contractWiring';
 import { MIDNIGHT_NETWORK_CAPTION } from '@/lib/network';
 import { useWallet } from '@/lib/wallet/WalletProvider';
 
@@ -17,7 +22,9 @@ export default function TokenPage() {
   const [tradeMode, setTradeMode] = useState('buy');
   const [amount, setAmount] = useState('');
   const [trading, setTrading] = useState(false);
-  const [txResult, setTxResult] = useState<{ txId: string } | null>(null);
+  const [txResult, setTxResult] = useState<{ txId: string; profile?: TradeBuildProfile } | null>(null);
+  const [tradePhase, setTradePhase] = useState<'server' | 'wallet' | null>(null);
+  const [tradeProfile, setTradeProfile] = useState<TradeBuildProfile | null>(null);
   const [tradeError, setTradeError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,6 +53,8 @@ export default function TokenPage() {
     setTrading(true);
     setTxResult(null);
     setTradeError(null);
+    setTradePhase('server');
+    setTradeProfile(null);
 
     try {
       const ada = BigInt(token.adaReserve);
@@ -77,8 +86,20 @@ export default function TokenPage() {
         };
       }
 
-      const result = await executeTradeWithWallet(params, api);
-      setTxResult({ txId: result.txId });
+      const shielded = await api.getShieldedAddresses();
+      const { provenTxHex, profile } = await buildTradeProvenTx({
+        ...params,
+        coinPublicKeyHex: shielded.shieldedCoinPublicKey,
+        shieldedEncryptionPublicKeyHex: shielded.shieldedEncryptionPublicKey,
+      });
+      setTradeProfile(profile);
+      setTradePhase('wallet');
+
+      const { txId, walletMs } = await finalizeTradeInWallet(api, provenTxHex, {
+        contractAddress: params.contractAddress,
+        action: params.action,
+      });
+      setTxResult({ txId, profile: { ...profile, walletMs } });
 
       // Update reserves in Redis after confirmed trade
       const adaCurrent = BigInt(token.adaReserve);
@@ -133,6 +154,8 @@ export default function TokenPage() {
       setTradeError(err.message ?? 'Trade failed');
     } finally {
       setTrading(false);
+      setTradePhase(null);
+      setTradeProfile(null);
     }
   }
 
@@ -144,8 +167,8 @@ export default function TokenPage() {
         open={trading || !!tradeError}
         error={tradeError}
         variant="trade"
-        title="Creating ZK proof…"
-        subtitle="Hold on — proving and submitting your trade can take up to a minute."
+        tradePhase={tradePhase ?? 'server'}
+        tradeProfile={tradeProfile}
         onDismiss={tradeError ? () => setTradeError(null) : undefined}
       />
       <Navbar />
@@ -234,7 +257,15 @@ export default function TokenPage() {
                   Submitted through Lace.<br/>
                   <span style={{ color:'var(--text-secondary)', wordBreak:'break-all' }} title="Transaction id">{txResult.txId}</span>
                   <br/>
-                  <span style={{ color:'var(--text-muted)' }}>Confirm status in Lace activity if needed.</span>
+                  {txResult.profile ? (
+                    <span style={{ color:'var(--text-muted)', display:'block', marginTop:6 }}>
+                      ZK proof {Math.round(txResult.profile.proveMs / 1000)}s · wallet {txResult.profile.walletMs != null ? `${(txResult.profile.walletMs / 1000).toFixed(1)}s` : '—'}
+                      {txResult.profile.proxyRoundTripMs != null
+                        ? ` · round-trip ${(txResult.profile.proxyRoundTripMs / 1000).toFixed(1)}s`
+                        : ''}
+                    </span>
+                  ) : null}
+                  <span style={{ color:'var(--text-muted)', display:'block', marginTop:6 }}>Confirm status in Lace activity if needed.</span>
                 </div>
               )}
 
