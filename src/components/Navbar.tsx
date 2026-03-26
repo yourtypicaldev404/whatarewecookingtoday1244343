@@ -39,7 +39,17 @@ export default function Navbar() {
             if (hasMidnightWallet) {
               connect();
             } else {
-              window.location.href = 'https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk';
+              const ua = navigator.userAgent;
+              let storeUrl: string;
+              if (ua.includes('Firefox/')) {
+                storeUrl = 'https://addons.mozilla.org/firefox/addon/lace-wallet/';
+              } else if (ua.includes('Edg/')) {
+                storeUrl = 'https://microsoftedge.microsoft.com/addons/detail/lace/efeiemlfnahiidnjglmehaihacglceia';
+              } else {
+                // Chrome, Brave, and all other Chromium browsers
+                storeUrl = 'https://chrome.google.com/webstore/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk';
+              }
+              window.location.href = storeUrl;
             }
           }
         }}
