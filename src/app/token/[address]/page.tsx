@@ -1,4 +1,5 @@
 'use client';
+import PriceChart from '@/components/PriceChart';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
@@ -55,9 +56,8 @@ export default function TokenPage() {
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 320px', gap:20, alignItems:'start' }}>
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-            <div className="glass" style={{ height:280, display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:8, color:'var(--text-muted)' }}>
-              <div style={{ fontSize:28 }}>📈</div>
-              <div style={{ fontFamily:'var(--font-mono)', fontSize:12 }}>Chart — run: npm install lightweight-charts</div>
+            <div className="glass" style={{ overflow:'hidden' }}>
+              <PriceChart ticker={token?.ticker ?? 'TOKEN'} />
             </div>
             <div className="glass" style={{ padding:18 }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
