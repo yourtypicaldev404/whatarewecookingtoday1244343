@@ -161,7 +161,8 @@ function deriveShieldedKeysFromSeed(seed) {
     return r.keys;
   })();
   const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
-  const toHex = (v) => typeof v === 'string' ? v : Buffer.from(Array.from(v)).toString('hex');
+  // Object.values works for real Uint8Array (own enumerable indices) AND WASM-bound {"0":x} objects
+  const toHex = (v) => typeof v === 'string' ? v : Buffer.from(Object.values(v)).toString('hex');
   return {
     getCoinPublicKey: () => toHex(shieldedSK.coinPublicKey),
     getEncryptionPublicKey: () => toHex(shieldedSK.encryptionPublicKey),
@@ -288,6 +289,7 @@ app.get('/health', (_, res) =>
     status: 'ok',
     networkId: NETWORK_ID,
     proofServer: PROOF,
+    v: 8,
   }),
 );
 
