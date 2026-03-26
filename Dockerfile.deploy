@@ -1,0 +1,16 @@
+# Deploy server (Express) with ZK via co-located proof server — use with docker-compose.yml profile "full".
+# Proof URL must be reachable from this container (e.g. http://proof-server:6300 on the compose network).
+FROM node:22-bookworm-slim
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY deploy-server.mjs ./
+COPY contracts ./contracts
+
+ENV NODE_ENV=production
+ENV PORT=3001
+EXPOSE 3001
+
+CMD ["node", "deploy-server.mjs"]

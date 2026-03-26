@@ -96,15 +96,34 @@ Run frontend:
 npm run dev
 ```
 
-Run deploy server (separate terminal):
+Run **proof server** (ZK — required for deploy/trade proving). Prefer co-locating with the deploy server:
+
 ```bash
-node deploy-server.mjs
+docker compose up -d
 ```
 
-Run proof server (Docker):
+Then run the deploy server with a **local** proof URL (default in `.env.example`):
+
 ```bash
-docker run -p 6300:6300 midnightntwrk/proof-server:8.0.3 -- midnight-proof-server -v
+PROOF_SERVER_URL=http://127.0.0.1:6300 node deploy-server.mjs
 ```
+
+**All-in-one Docker** (proof + deploy on the same compose network; deploy uses `http://proof-server:6300`):
+
+```bash
+docker compose --profile full up -d --build
+# health: curl http://localhost:3001/health
+```
+
+One-off proof container (same image as compose):
+
+```bash
+npm run start-proof-server
+```
+
+Configure **Lace** → Midnight → Prover server → `http://localhost:6300` when using local proof.
+
+**Railway (co-located proof):** add a second Railway service using Docker image `midnightntwrk/proof-server:8.0.3` (port 6300). Set the deploy service `PROOF_SERVER_URL` to that service’s **private** URL (e.g. `http://<proof-service>.railway.internal:6300` or the generated internal hostname). Use the hosted Preview proof URL instead if you do not run your own prover.
 
 Compile contracts:
 ```bash

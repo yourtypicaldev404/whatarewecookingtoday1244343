@@ -10,7 +10,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "start-proof-server": "docker run -p 6300:6300 midnightntwrk/proof-server:7.0.0 -- midnight-proof-server -v",
+    "start-proof-server": "docker run --rm -p 6300:6300 midnightntwrk/proof-server:8.0.3 -- midnight-proof-server -v",
     "compile-contracts": "compact compile contracts/bonding_curve.compact contracts/managed/bonding_curve && compact compile contracts/vesting.compact contracts/managed/vesting",
     "deploy": "tsx scripts/deploy.ts",
     "cli": "tsx scripts/cli.ts"
