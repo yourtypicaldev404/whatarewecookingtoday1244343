@@ -1,0 +1,8 @@
+{
+  "version": 3,
+  "file": "index.js",
+  "sourceRoot": "../../../../",
+  "sources": ["contracts/vesting.compact", "compiler/standard-library.compact"],
+  "names": [],
+  "mappings": ";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;EAYA;;;;;;;;;;;;;;;;MAgBA,AAAA,MASC;;;;;;;;;;;;;;;;;;;;;;OAAA;MAED,AAAA,eAAqE;;;;;;;;;;;;;;;;;;;;;;OAAA;MACrE,AAAA,QAA6E;;;;;;;;;;;;;;;;;;;;;;OAAA;;;;;;;;;;;;GAvB5E;EALD;;;;;UAAY,WAAoB;UAAE,QAAiB;UAAE,WAAmB;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;IANxE;;;;;;;;;yEAAwC;IACxC;;;;;;;;;yEAAwC;IACxC;;;;;;;;;yEAAuC;IACvC;;;;;;;;;yEAAwC;IACxC;;;;;;;;;yEAAsC;UAGpC,KAAc,4CAAqB;;;;;;;;;;;gIAAK;mCAAE,WAAS;IAAnD;;;;;;;2HAAA,KAAc;;yEAAA;IACd;;;;;;;2HAA0B,QAAM;;yEAAnB;IACb;;;;;;;2HAA0B,WAAS;;yEAA1B;IACT;;;;;;;;;yEAAU;;;;;;;GACX;ECjBD,AAAA,kBAAA;oEAAA;;;EDmBA,AAAA,WAIC,CAJgB,GAAQ,EAAE,IAAa;;;wEAER,GAAC;;mCAAe,IAAE;GAEjD;EAED,AAAA,kBAAqC;;0DAArC,eAAqC;;;;;;;;;;;;;;GAAA;EACrC,AAAA,mBAAqC;;0DAArC,gBAAqC;;;;;;;;;;;;;;GAAA;EAErC,AAAA,SASC;oDARQ;;;;;;;;;;;yHAAU;;;;mFACD;;;;;;;;;;;wJAAK;;;kEAAwB;;;;;;;;;;;uIAAc;;QACpD,GAA+B;;;6BAA/B,GAA+B;;qDAAT;;;;;;;;;;;0HAAS;;UAChC,QAAiC,2BAAb;;;;;;;;;;;kHAAa;IACvC;;;;;;;;;yEAAU;UACV,KAAa;IAAb;;;;;;;2HAAA,KAAa;;yEAAA;UACb,KAAK;IAAL;;;;;;;;;;6FAAA,KAAK;;;;wEAAA;WACE,QAAM;GACd;EAED,AAAA,kBAAqE;mCAAhB;;;;;;;;;;;wGAAa;GAAG;EACrE,AAAA,WAA6E;mCAAjC;;;;;;;;;;;wGAAU;;;GAAuB;;;;;;;;;;;;;;;;;;;;IAlC7E;qCAAA;;;;;;;;;;;0GAAwC;KAAA;IACxC;qCAAA;;;;;;;;;;;0GAAwC;KAAA;IACxC;qCAAA;;;;;;;;;;;0GAAuC;KAAA;IACvC;qCAAA;;;;;;;;;;;0GAAwC;KAAA;IACxC;qCAAA;;;;;;;;;;;0GAAsC;KAAA;;;;;;;;;;;;;"
+}
