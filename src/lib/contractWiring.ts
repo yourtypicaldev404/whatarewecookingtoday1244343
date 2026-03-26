@@ -69,6 +69,27 @@ export interface TradeResult {
   walletMs?: number;
 }
 
+function tradeBuildErrorMessage(status: number, body: string): string {
+  const t = body.trim();
+  const generic =
+    !t ||
+    /^service unavailable$/i.test(t) ||
+    t.startsWith('<!') ||
+    t.startsWith('<html');
+  if (generic && (status === 502 || status === 503 || status === 504)) {
+    return (
+      'Trade backend unavailable (deploy server or proof service). ' +
+      'If you host deploy-server: set PROOF_SERVER_URL to Midnight’s hosted proof URL for your network ' +
+      '(e.g. https://proof-server.preview.midnight.network for Preview), or run a local proof server. ' +
+      'Check Railway/Vercel logs and DEPLOY_SERVER_URL.'
+    );
+  }
+  if (generic) {
+    return `Trade build failed (${status}). ${t.slice(0, 200)}`;
+  }
+  return t || `Trade build failed (${status})`;
+}
+
 /**
  * POST /api/trade → deploy server: unproven tx + ZK prove. Does not touch the wallet yet.
  */
@@ -90,7 +111,7 @@ export async function buildTradeProvenTx(params: TradeParams & { coinPublicKeyHe
     } catch {
       msg = text;
     }
-    throw new Error(msg || `Trade build failed (${res.status})`);
+    throw new Error(tradeBuildErrorMessage(res.status, msg));
   }
 
   const body = (await res.json()) as {

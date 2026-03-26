@@ -102,10 +102,17 @@ if (!INDEXER || !INDEXERWS || !NODE) {
 
 setNetworkId(NETWORK_ID);
 
+/** Default hosted provers — Railway/cloud has no localhost prover; local dev overrides via .env.local or docker compose. */
+const PROOF_DEFAULT_BY_NETWORK = {
+  preview: 'https://proof-server.preview.midnight.network',
+  preprod: 'https://lace-proof-pub.preprod.midnight.network',
+};
+
 const PROOF =
   process.env.PROOF_SERVER_URL ??
   process.env.NEXT_PUBLIC_PROOF_SERVER ??
-  'http://localhost:6300';
+  PROOF_DEFAULT_BY_NETWORK[NETWORK_ID] ??
+  'http://127.0.0.1:6300';
 const SEED      = process.env.DEPLOYER_SEED ?? '971da3750a45a3812c732f8b70ccb9d8c7e7b55e65700b87f5346fc1c7d1a952';
 const TREASURY  = process.env.TREASURY_SEED ?? SEED;
 const PORT      = process.env.PORT ?? process.env.DEPLOY_SERVER_PORT ?? 3001;

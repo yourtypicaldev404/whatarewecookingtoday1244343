@@ -34,6 +34,12 @@ export async function POST(req: NextRequest) {
       } catch {
         /* keep text */
       }
+      if (!msg?.trim() || /^service unavailable$/i.test(msg.trim())) {
+        msg =
+          res.status >= 502
+            ? `Deploy server at ${deployServerUrl} returned ${res.status}. Check it is running, PROOF_SERVER_URL points to a reachable proof server, and Railway/Vercel networking is OK.`
+            : msg;
+      }
       return NextResponse.json({ error: msg }, { status: res.status });
     }
 

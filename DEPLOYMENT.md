@@ -41,7 +41,7 @@ In the **deploy** service → **Variables**:
 
 | Variable | Purpose |
 |----------|---------|
-| `PROOF_SERVER_URL` | **Hosted:** `https://proof-server.preview.midnight.network` (or Preprod equivalent). **Self-hosted proof:** internal URL of the proof service below (e.g. `http://proof-server.railway.internal:6300` — use the hostname Railway shows for private networking). **Not** `http://127.0.0.1`. |
+| `PROOF_SERVER_URL` | **Optional on Preview/Preprod:** deploy-server defaults to Midnight’s hosted proof if unset (`proof-server.preview.midnight.network` / Preprod lace-proof-pub). **Self-hosted:** internal URL of your proof service (e.g. `http://proof-server.railway.internal:6300`). **Do not** rely on `http://127.0.0.1:6300` on Railway — there is no local prover unless you add one. |
 | `NETWORK_ID` | `preview` / `preprod` / … — must match wallet + indexer. |
 | `INDEXER_HTTP`, `INDEXER_WS`, `NODE_RPC` | Optional overrides; defaults come from `NETWORK_ID` in `deploy-server.mjs`. |
 | `DEPLOYER_SEED` / `TREASURY_SEED` | Deploy wallet / treasury (hex). **Secrets — set only in Railway, never commit.** |
