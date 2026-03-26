@@ -290,7 +290,7 @@ app.get('/health', (_, res) => {
     status: 'ok',
     networkId: NETWORK_ID,
     proofServer: PROOF,
-    v: 10,
+    v: 11,
     debug_cpk_type: typeof cpk,
     debug_cpk_ctor: cpk?.constructor?.name ?? 'null',
     debug_cpk_len: cpk?.length ?? 'n/a',
@@ -324,9 +324,16 @@ app.post('/deploy', async (req, res) => {
       { zkConfigProvider: zkConfig, walletProvider: TRADE_WALLET_PROVIDER },
       { compiledContract, initialPrivateState: {}, args: [creatorSk, treasurySk], signingKey },
     );
-    const unprovenTxHex = Buffer.from(unprovenData.private.unprovenTx.serialize()).toString('hex');
     console.log('Unproven deploy tx built, contractAddress:', unprovenData.public.contractAddress);
-    res.json({ unprovenTxHex, contractAddress: unprovenData.public.contractAddress });
+
+    // Lace's balanceUnsealedTransaction requires a proved (not proof-preimage) transaction.
+    // Prove it here on the server, then the browser only needs to balance + submit.
+    const proofProvider = httpClientProofProvider(PROOF, zkConfig);
+    console.log('Proving deploy tx via', PROOF, '...');
+    const provenTx = await proofProvider.proveTx(unprovenData.private.unprovenTx);
+    const provenTxHex = Buffer.from(provenTx.serialize()).toString('hex');
+    console.log('Deploy tx proved, returning to browser');
+    res.json({ unprovenTxHex: provenTxHex, contractAddress: unprovenData.public.contractAddress });
   } catch (err) {
     console.error('Deploy build failed:', err.message, '\n', err.stack);
     res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
@@ -394,7 +401,11 @@ app.post('/trade/build', async (req, res) => {
       (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeUnproven,
     );
 
-    const unprovenTxHex = Buffer.from(unsubmitted.private.unprovenTx.serialize()).toString('hex');
+    // Prove the transaction on the server — Lace's balanceUnsealedTransaction
+    // requires proof format, not proof-preimage.
+    const proofProvider = httpClientProofProvider(PROOF, zkConfig);
+    const provenTx = await proofProvider.proveTx(unsubmitted.private.unprovenTx);
+    const unprovenTxHex = Buffer.from(provenTx.serialize()).toString('hex');
 
     const profile = {
       createUnprovenMs,
@@ -407,7 +418,6 @@ app.post('/trade/build', async (req, res) => {
           action,
           contractAddress,
           ...profile,
-          note: 'Lace wallet proves + balances; server only builds unproven tx',
         },
       }),
     );
