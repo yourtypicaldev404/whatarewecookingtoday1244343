@@ -280,7 +280,7 @@ app.post('/deploy', async (req, res) => {
  * Build an unproven buy/sell call tx. The browser's Lace wallet proves + balances + submits.
  */
 app.post('/trade/build', async (req, res) => {
-  const {
+  let {
     contractAddress,
     action,
     adaIn,
@@ -289,6 +289,7 @@ app.post('/trade/build', async (req, res) => {
     adaOut,
   } = req.body;
 
+  contractAddress = contractAddress?.replace(/^0x/, '');
   console.log(`Trade build: ${action} on ${contractAddress}`);
 
   if (!contractAddress || !action || !['buy', 'sell'].includes(action)) {
