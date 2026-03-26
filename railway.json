@@ -1,0 +1,8 @@
+{
+  "build": {
+    "buildCommand": "npm install --ignore-scripts"
+  },
+  "deploy": {
+    "startCommand": "node deploy-server.mjs"
+  }
+}
