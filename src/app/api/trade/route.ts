@@ -15,14 +15,32 @@ export async function POST(req: NextRequest) {
     '',
   );
 
+  const tradePayload = JSON.stringify(body);
+
   try {
     const t0 = performance.now();
-    const res = await fetch(`${deployServerUrl}/trade/build`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(240_000),
-    });
+    let res: Response | null = null;
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      res = await fetch(`${deployServerUrl}/trade/build`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'night.fun-trade-proxy/1.0',
+        },
+        body: tradePayload,
+        signal: AbortSignal.timeout(240_000),
+      });
+      if (res.ok) break;
+      if (attempt < maxAttempts && [502, 503, 504].includes(res.status)) {
+        await new Promise((r) => setTimeout(r, 2500 * attempt));
+        continue;
+      }
+      break;
+    }
+    if (!res) {
+      return NextResponse.json({ error: 'Trade proxy: no response from deploy server' }, { status: 502 });
+    }
     const proxyRoundTripMs = Math.round(performance.now() - t0);
 
     const text = await res.text();

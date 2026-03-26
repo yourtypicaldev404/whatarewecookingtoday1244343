@@ -1,8 +1,11 @@
 {
+  "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "buildCommand": "npm install --ignore-scripts"
+    "buildCommand": "npm install"
   },
   "deploy": {
-    "startCommand": "node deploy-server.mjs"
+    "startCommand": "node deploy-server.mjs",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 120
   }
 }

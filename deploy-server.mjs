@@ -234,7 +234,13 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-app.get('/health', (_, res) => res.json({ status: 'ok' }));
+app.get('/health', (_, res) =>
+  res.json({
+    status: 'ok',
+    networkId: NETWORK_ID,
+    proofServer: PROOF,
+  }),
+);
 
 app.post('/deploy', async (req, res) => {
   console.log('Deploying contract for:', req.body.name, req.body.ticker);

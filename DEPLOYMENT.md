@@ -35,6 +35,16 @@ Redeploy after changing env vars.
 
 ---
 
+## If trades return 502 / 503
+
+1. **Check Railway deploy logs** for the deploy service — crash loops, OOM, or missing `contracts/` show up there.
+2. **Open** `https://<your-deploy-service>.up.railway.app/health` — you should see JSON with `status: ok`, `networkId`, and `proofServer` (Midnight hosted URL).
+3. **Redeploy** after changing `railway.json` (this repo uses `npm install` without `--ignore-scripts`, and `healthcheckPath: /health`).
+
+`PROOF_SERVER_URL=https://proof-server.preview.midnight.network` is correct for Preview; **503** usually means the **Railway Node process** isn’t healthy (not the proof URL being wrong).
+
+---
+
 ## Railway (deploy server — `node deploy-server.mjs`)
 
 In the **deploy** service → **Variables**:
