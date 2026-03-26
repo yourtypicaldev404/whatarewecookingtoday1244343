@@ -1,62 +1,41 @@
-pragma language_version 0.21;
+pragma language_version 0.22.0;
 
 import CompactStandardLibrary;
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  night.fun — Vesting / Lock Contract
-//  Any holder can lock tokens here with a time-based unlock.
-//  The locked amount and unlock time are public (trust signal).
-//  Unlocking requires matching secret key + timestamp >= unlock_at.
-// ─────────────────────────────────────────────────────────────────────────────
-
 enum LockState { LOCKED, UNLOCKED }
 
-export ledger beneficiary_pk:   Bytes<32>;
-export ledger token_contract:   Bytes<32>;   // bonding curve address (hex)
-export ledger locked_amount:    Uint<128>;
-export ledger unlock_at:        Uint<64>;    // unix seconds
-export ledger lock_state:       LockState;
-export ledger round:            Counter;
+export ledger beneficiary_pk: Bytes<32>;
+export ledger locked_amount:  Uint<128>;
+export ledger unlock_at:      Uint<64>;
+export ledger lock_state:     LockState;
+export ledger round:          Counter;
 
-constructor(
-  holder_sk:     Bytes<32>,
-  token_addr:    Bytes<32>,
-  amount:        Uint<128>,
-  unlock_ts:     Uint<64>
-) {
-  beneficiary_pk  = disclose(pkFromSk(round, holder_sk));
-  token_contract  = disclose(token_addr);
-  locked_amount   = disclose(amount);
-  unlock_at       = disclose(unlock_ts);
-  lock_state      = LockState.LOCKED;
+constructor(holder_sk: Bytes<32>, amount: Uint<128>, unlock_ts: Uint<64>) {
+  beneficiary_pk = disclose(pkFromSk(round, holder_sk));
+  locked_amount  = disclose(amount);
+  unlock_at      = disclose(unlock_ts);
+  lock_state     = LockState.LOCKED;
 }
 
 circuit pkFromSk(r: Field, sk: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<3, Bytes<32>>>(
-    [pad(32, "night:fun:lock:v1"), r as Bytes<32>, sk]
+    [pad(32, "night:fun:lock"), r as Bytes<32>, sk]
   );
 }
 
 witness holderSecretKey(): Bytes<32>;
-witness currentUnixTimestamp(): Uint<64>;
+witness currentTimestamp(): Uint<64>;
 
 export circuit unlock(): Uint<128> {
   assert(lock_state == LockState.LOCKED, "Already unlocked");
-
-  const sk: Bytes<32> = holderSecretKey();
-  const pk: Bytes<32> = pkFromSk(round, sk);
-  assert(pk == beneficiary_pk, "Not the beneficiary");
-
-  const now: Uint<64> = currentUnixTimestamp();
-  assert(now >= unlock_at, "Lock period not expired");
-
+  assert(pkFromSk(round, holderSecretKey()) == beneficiary_pk, "Not beneficiary");
+  assert(currentTimestamp() >= unlock_at, "Still locked");
   const amount: Uint<128> = locked_amount;
-  lock_state   = LockState.UNLOCKED;
-  locked_amount = disclose(0);
+  lock_state    = LockState.UNLOCKED;
+  locked_amount = disclose(0 as Uint<128>);
   round.increment(1);
   return amount;
 }
 
 export circuit getLockedAmount(): Uint<128> { return locked_amount; }
-export circuit getUnlockAt():     Uint<64>  { return unlock_at; }
-export circuit isLocked():        Boolean   { return lock_state == LockState.LOCKED; }
+export circuit isLocked(): Boolean { return lock_state == LockState.LOCKED; }

@@ -1,314 +1,70 @@
-pragma language_version 0.21;
+pragma language_version 0.22.0;
 
 import CompactStandardLibrary;
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  night.fun — Bonding Curve Contract  (Preprod-compatible)
-//
-//  Compiler: compact 0.29.0  |  Ledger: 7.0.0  |  Runtime: 2.0.0
-//
-//  Price formula (constant-product AMM with virtual reserve floor):
-//    k = (ada_reserve + VIRTUAL_ADA) * token_reserve
-//    tokens_out = token_reserve - k / (ada_reserve + VIRTUAL_ADA + ada_in_net)
-//
-//  Graduation: ada_reserve >= GRADUATION_TARGET → state = GRADUATED
-//  
-//  NOTE: All arithmetic uses Uint<128> intermediates to prevent overflow.
-//        ada_reserve (max ~69k DUST = 69e9 tDUST) × token_reserve (max 1e15)
-//        peaks at ~7e25, which overflows Uint<64> (max ~1.8e19).
-// ─────────────────────────────────────────────────────────────────────────────
+enum CurveState { ACTIVE, GRADUATED, PAUSED }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+export ledger creator_pk:    Bytes<32>;
+export ledger treasury_pk:   Bytes<32>;
+export ledger ada_reserve:   Uint<128>;
+export ledger token_reserve: Uint<128>;
+export ledger total_volume:  Uint<128>;
+export ledger tx_count:      Uint<64>;
+export ledger state:         CurveState;
+export ledger round:         Counter;
 
-// 1 billion tokens, 6 decimal places → 1e15 base units
-const TOTAL_SUPPLY: Uint<128> = 1_000_000_000_000_000;
-
-// Burn 1M tokens (0.1%) to unspendable at deploy
-const BURN_AMOUNT: Uint<128> = 1_000_000_000;
-
-// Graduation: 69,000 DUST = 69_000_000_000 tDUST (6 decimals)
-const GRADUATION_TARGET: Uint<128> = 69_000_000_000;
-
-// Virtual reserve floor — sets starting market cap ~₾2,550 DUST
-const VIRTUAL_ADA: Uint<128> = 2_550_000_000;
-
-// Protocol fee: 1% (100 bps out of 10_000)
-const FEE_BPS: Uint<128> = 100;
-const BPS_DENOM: Uint<128> = 10_000;
-
-// Scale factor for fixed-point price (6 decimal places)
-const PRICE_SCALE: Uint<128> = 1_000_000;
-
-// Social update fee: 150 DUST = 150_000_000 tDUST
-const SOCIAL_UPDATE_FEE: Uint<128> = 150_000_000;
-
-// ── Lifecycle state ────────────────────────────────────────────────────────────
-
-enum CurveState {
-  ACTIVE,
-  GRADUATED,
-  PAUSED
+constructor(creator_sk: Bytes<32>, treasury_key: Bytes<32>) {
+  creator_pk    = disclose(deriveKey(round, creator_sk));
+  treasury_pk   = disclose(treasury_key);
+  state         = CurveState.ACTIVE;
+  ada_reserve   = 0;
+  token_reserve = 999000000000000;
+  total_volume  = 0;
+  tx_count      = 0;
 }
 
-// ── Ledger (public on-chain state) ────────────────────────────────────────────
-
-// Creator identity (hash of their secret key, rotates on each privileged action)
-export ledger creator_pk: Bytes<32>;
-
-// Protocol treasury identity
-export ledger treasury_pk: Bytes<32>;
-
-// Token metadata — stored as SHA-256 hashes; full data lives off-chain (IPFS)
-export ledger name_hash:        Bytes<32>;
-export ledger ticker_hash:      Bytes<32>;
-export ledger description_hash: Bytes<32>;
-export ledger image_hash:       Bytes<32>;
-
-// Social links (updateable by creator for SOCIAL_UPDATE_FEE)
-export ledger website_hash:  Bytes<32>;
-export ledger telegram_hash: Bytes<32>;
-export ledger twitter_hash:  Bytes<32>;
-export ledger discord_hash:  Bytes<32>;
-
-// Bonding curve reserves (all in tDUST / token base units, 6 decimals)
-export ledger ada_reserve:   Uint<128>;   // tDUST held in curve
-export ledger token_reserve: Uint<128>;   // unsold tokens held in curve
-
-// Accumulated protocol fees (claimable by treasury)
-export ledger fee_reserve: Uint<128>;
-
-// Volume and activity tracking (for King of the Hill scoring)
-export ledger total_volume: Uint<128>;
-export ledger tx_count:     Uint<64>;
-
-// Lifecycle
-export ledger state: CurveState;
-
-// Round counter — breaks key linkability between creator actions
-export ledger round: Counter;
-
-// ── Constructor ───────────────────────────────────────────────────────────────
-
-constructor(
-  creator_sk:   Bytes<32>,
-  treasury_key: Bytes<32>,
-  name_h:        Bytes<32>,
-  ticker_h:      Bytes<32>,
-  description_h: Bytes<32>,
-  image_h:       Bytes<32>,
-  initial_ada:   Uint<128>    // tDUST initial buy; 0 = no initial buy
-) {
-  creator_pk  = disclose(derivePublicKey(round, creator_sk));
-  treasury_pk = disclose(treasury_key);
-
-  name_hash        = disclose(name_h);
-  ticker_hash      = disclose(ticker_h);
-  description_hash = disclose(description_h);
-  image_hash       = disclose(image_h);
-
-  // Empty socials at deploy
-  website_hash  = disclose(pad(32, ""));
-  telegram_hash = disclose(pad(32, ""));
-  twitter_hash  = disclose(pad(32, ""));
-  discord_hash  = disclose(pad(32, ""));
-
-  state       = CurveState.ACTIVE;
-  fee_reserve = 0;
-  tx_count    = 0;
-
-  // Subtract burn allocation from circulating supply
-  const circulating: Uint<128> = TOTAL_SUPPLY - BURN_AMOUNT;
-
-  if (initial_ada > 0) {
-    // Execute initial buy inline
-    const fee: Uint<128>       = (initial_ada * FEE_BPS) / BPS_DENOM;
-    const net_ada: Uint<128>   = initial_ada - fee;
-    const tokens_out: Uint<128> = calcTokensOut(net_ada, 0, circulating);
-
-    ada_reserve   = disclose(net_ada);
-    token_reserve = disclose(circulating - tokens_out);
-    fee_reserve   = disclose(fee);
-    total_volume  = disclose(initial_ada);
-    tx_count      = disclose(1);
-  } else {
-    ada_reserve   = disclose(0);
-    token_reserve = disclose(circulating);
-    total_volume  = disclose(0);
-  }
-}
-
-// ── Internal key derivation ───────────────────────────────────────────────────
-
-circuit derivePublicKey(r: Field, sk: Bytes<32>): Bytes<32> {
+circuit deriveKey(r: Field, sk: Bytes<32>): Bytes<32> {
   return persistentHash<Vector<3, Bytes<32>>>(
-    [pad(32, "night:fun:pk:v1"), r as Bytes<32>, sk]
+    [pad(32, "night:fun:pk"), r as Bytes<32>, sk]
   );
 }
 
-// ── AMM price math (Uint<128> throughout to prevent overflow) ─────────────────
-
-//  Given ada_in (net of fee), how many tokens come out?
-//  Uses constant-product formula with virtual floor.
-circuit calcTokensOut(
-  ada_in:        Uint<128>,
-  cur_ada:       Uint<128>,
-  cur_tokens:    Uint<128>
-): Uint<128> {
-  const real_ada: Uint<128>    = cur_ada + VIRTUAL_ADA;
-  const k: Uint<128>           = real_ada * cur_tokens;
-  const new_ada: Uint<128>     = real_ada + ada_in;
-  const new_tokens: Uint<128>  = k / new_ada;
-  return cur_tokens - new_tokens;
-}
-
-//  Given tokens_in, how much ada comes out (gross, before fee)?
-circuit calcAdaOut(
-  tokens_in:  Uint<128>,
-  cur_ada:    Uint<128>,
-  cur_tokens: Uint<128>
-): Uint<128> {
-  const real_ada: Uint<128>   = cur_ada + VIRTUAL_ADA;
-  const k: Uint<128>          = real_ada * cur_tokens;
-  const new_tokens: Uint<128> = cur_tokens + tokens_in;
-  const new_ada: Uint<128>    = k / new_tokens;
-  return real_ada - new_ada;
-}
-
-// ── Public read circuits ───────────────────────────────────────────────────────
-
-// Returns tDUST per 1_000_000 tokens (i.e. price per 1 token with 6 dec)
-export circuit getSpotPrice(): Uint<128> {
-  assert(state != CurveState.PAUSED, "Curve paused");
-  const real_ada: Uint<128> = ada_reserve + VIRTUAL_ADA;
-  return (real_ada * PRICE_SCALE) / token_reserve;
-}
-
-// Returns market cap in tDUST
-export circuit getMarketCap(): Uint<128> {
-  const price: Uint<128> = getSpotPrice();
-  return (price * TOTAL_SUPPLY) / PRICE_SCALE;
-}
-
-// Returns 0-100 percentage toward graduation
-export circuit getBondingProgress(): Uint<64> {
-  if (state == CurveState.GRADUATED) {
-    return 100;
-  }
-  return (ada_reserve * 100) / GRADUATION_TARGET as Uint<64>;
-}
-
-// ── Buy ───────────────────────────────────────────────────────────────────────
-
-export circuit buy(
-  ada_in:       Uint<128>,    // gross tDUST sent by buyer
-  min_tokens:   Uint<128>     // slippage guard: revert if output < this
-): Uint<128> {
-  assert(state == CurveState.ACTIVE, "Curve not active");
-  assert(ada_in > 0, "Must send tDUST");
-
-  const fee: Uint<128>       = (ada_in * FEE_BPS) / BPS_DENOM;
-  const net_ada: Uint<128>   = ada_in - fee;
-  const tokens_out: Uint<128> = calcTokensOut(net_ada, ada_reserve, token_reserve);
-
-  assert(tokens_out >= min_tokens, "Slippage exceeded");
-  assert(tokens_out <= token_reserve, "Insufficient liquidity");
+export circuit buy(ada_in: Uint<128>, tokens_out: Uint<128>): [] {
+  assert(state == CurveState.ACTIVE, "Not active");
+  assert(ada_in > 0, "Zero input");
   assert(tokens_out > 0, "Zero output");
-
-  ada_reserve   = disclose(ada_reserve + net_ada);
-  token_reserve = disclose(token_reserve - tokens_out);
-  fee_reserve   = disclose(fee_reserve + fee);
-  total_volume  = disclose(total_volume + ada_in);
-  tx_count      = disclose(tx_count + 1);
-
-  // Auto-graduate when target reached
-  if (ada_reserve >= GRADUATION_TARGET) {
-    state = CurveState.GRADUATED;
-  }
-
-  return tokens_out;
+  assert(tokens_out < token_reserve, "Insufficient liquidity");
+  ada_reserve   = disclose((ada_reserve + ada_in) as Uint<128>);
+  token_reserve = disclose((token_reserve - tokens_out) as Uint<128>);
+  total_volume  = disclose((total_volume + ada_in) as Uint<128>);
+  tx_count      = disclose((tx_count + 1) as Uint<64>);
+  if (ada_reserve >= 1000000000) { state = CurveState.GRADUATED; }
 }
 
-// ── Sell ──────────────────────────────────────────────────────────────────────
-
-export circuit sell(
-  tokens_in: Uint<128>,   // tokens to sell
-  min_ada:   Uint<128>    // slippage guard
-): Uint<128> {
-  assert(state == CurveState.ACTIVE, "Curve not active");
-  assert(tokens_in > 0, "Must sell tokens > 0");
-
-  const gross_ada: Uint<128>  = calcAdaOut(tokens_in, ada_reserve, token_reserve);
-  const fee: Uint<128>        = (gross_ada * FEE_BPS) / BPS_DENOM;
-  const net_ada: Uint<128>    = gross_ada - fee;
-
-  assert(net_ada >= min_ada, "Slippage exceeded");
-  assert(gross_ada <= ada_reserve, "Insufficient ADA reserve");
-  assert(net_ada > 0, "Zero output");
-
-  token_reserve = disclose(token_reserve + tokens_in);
-  ada_reserve   = disclose(ada_reserve - gross_ada);
-  fee_reserve   = disclose(fee_reserve + fee);
-  total_volume  = disclose(total_volume + gross_ada);
-  tx_count      = disclose(tx_count + 1);
-
-  return net_ada;
+export circuit sell(tokens_in: Uint<128>, ada_out: Uint<128>): [] {
+  assert(state == CurveState.ACTIVE, "Not active");
+  assert(tokens_in > 0, "Zero input");
+  assert(ada_out > 0, "Zero output");
+  assert(ada_out < ada_reserve, "Insufficient reserve");
+  token_reserve = disclose((token_reserve + tokens_in) as Uint<128>);
+  ada_reserve   = disclose((ada_reserve - ada_out) as Uint<128>);
+  total_volume  = disclose((total_volume + ada_out) as Uint<128>);
+  tx_count      = disclose((tx_count + 1) as Uint<64>);
 }
 
-// ── Update socials (creator only, costs SOCIAL_UPDATE_FEE) ───────────────────
-
-witness creatorSecretKey(): Bytes<32>;
-
-export circuit updateSocials(
-  new_website:  Bytes<32>,
-  new_telegram: Bytes<32>,
-  new_twitter:  Bytes<32>,
-  new_discord:  Bytes<32>,
-  fee_paid:     Uint<128>
-): [] {
-  const sk: Bytes<32>   = creatorSecretKey();
-  const pk: Bytes<32>   = derivePublicKey(round, sk);
-  assert(pk == creator_pk, "Only creator can update socials");
-  assert(fee_paid >= SOCIAL_UPDATE_FEE, "Insufficient social update fee");
-
-  website_hash  = disclose(new_website);
-  telegram_hash = disclose(new_telegram);
-  twitter_hash  = disclose(new_twitter);
-  discord_hash  = disclose(new_discord);
-  fee_reserve   = disclose(fee_reserve + fee_paid);
-
-  round.increment(1);
+export circuit getProgress(): Uint<64> {
+  if (state == CurveState.GRADUATED) { return 100; }
+  return tx_count;
 }
-
-// ── Claim fees (treasury only) ────────────────────────────────────────────────
 
 witness treasurySecretKey(): Bytes<32>;
 
-export circuit claimFees(): Uint<128> {
-  const sk: Bytes<32> = treasurySecretKey();
-  const pk: Bytes<32> = derivePublicKey(round, sk);
-  assert(pk == treasury_pk, "Only treasury can claim fees");
-  assert(fee_reserve > 0, "No fees to claim");
-
-  const amount: Uint<128> = fee_reserve;
-  fee_reserve             = disclose(0);
-  round.increment(1);
-  return amount;
-}
-
-// ── Emergency pause/unpause (treasury only) ───────────────────────────────────
-
 export circuit pause(): [] {
-  const sk: Bytes<32> = treasurySecretKey();
-  const pk: Bytes<32> = derivePublicKey(round, sk);
-  assert(pk == treasury_pk, "Only treasury can pause");
-  assert(state == CurveState.ACTIVE, "Already not active");
+  assert(deriveKey(round, treasurySecretKey()) == treasury_pk, "Not treasury");
   state = CurveState.PAUSED;
 }
 
 export circuit unpause(): [] {
-  const sk: Bytes<32> = treasurySecretKey();
-  const pk: Bytes<32> = derivePublicKey(round, sk);
-  assert(pk == treasury_pk, "Only treasury can unpause");
-  assert(state == CurveState.PAUSED, "Not paused");
+  assert(deriveKey(round, treasurySecretKey()) == treasury_pk, "Not treasury");
   state = CurveState.ACTIVE;
 }
