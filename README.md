@@ -47,8 +47,10 @@ Token page live at /token/[address]
 - [x] 4-step token launch wizard
 - [x] Token page with bonding curve progress, buy/sell UI, price chart
 - [x] Real ZK contract deploy — every token launch deploys a real Midnight contract
+- [x] **Real buy/sell** — server builds unproven tx, Lace wallet proves via its configured proof server + balances fees + submits
 - [x] Wallet connect via Lace (network from env; default Preview in `src/lib/network.ts`)
-- [x] Token registry persists to Upstash Redis
+- [x] Browser-aware Lace install redirect (Chrome Web Store / Firefox Add-ons / Edge Add-ons)
+- [x] Token registry persists to Upstash Redis (PATCH route updates reserves after trades)
 - [x] Token images upload to IPFS via Pinata
 - [x] Social links (Twitter, Telegram, website, Discord)
 - [x] Deploy server running 24/7 on Railway
@@ -56,11 +58,32 @@ Token page live at /token/[address]
 
 ---
 
+## Trade Architecture
+
+Trades do **not** use a server-side proof server. The Railway server only builds the unproven transaction:
+
+```
+Browser (Lace connected)
+  ↓ POST /api/trade (Next.js proxy)
+  ↓ POST /trade/build (Railway deploy server)
+      → createUnprovenCallTx(contractAddress, buy|sell, args)
+      → returns unprovenTxHex
+  ↓ api.balanceUnsealedTransaction(unprovenTxHex)
+      Lace internally: ZK-proves using its configured proof server
+                       + balances fees from user's DUST
+  ↓ api.submitTransaction(balanced.tx)
+      → confirmed on Midnight
+  ↓ PATCH /api/tokens/[address] — update reserves in Redis
+```
+
+This means the proof server the user has configured in Lace (Settings → Midnight → Prover server) is the one used for trade proofs. Railway only needs a proof server for **deploys**.
+
+---
+
 ## TODO ⬜
 
 ### High Priority
 
-- [ ] **Real buy/sell** — Buy/Sell buttons currently show placeholder. Need to call bonding curve `buy()` / `sell()` circuits via Lace DApp Connector. The contract is deployed, just needs the transaction wiring.
 - [ ] **Real price chart** — currently mock data. Subscribe to Midnight indexer WebSocket for real trade history per contract address.
 - [ ] **Token images on homepage cards** — uploaded images go to IPFS but homepage cards show moon emoji. Need to load from `imageUri` field.
 
@@ -117,7 +140,7 @@ Run frontend only (e.g. production deploy URL already in env):
 npm run dev
 ```
 
-Run **proof server** (ZK — required for deploy/trade proving). Prefer co-locating with the deploy server:
+Run **proof server** (ZK — required for **deploys**; trades use Lace's configured proof server). Prefer co-locating with the deploy server:
 
 ```bash
 docker compose up -d
