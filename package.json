@@ -16,8 +16,11 @@
     "cli": "tsx scripts/cli.ts"
   },
   "dependencies": {
+    "@midnight-ntwrk/compact-js": "^2.5.0",
     "@midnight-ntwrk/compact-runtime": "^0.15.0",
     "@midnight-ntwrk/dapp-connector-api": "4.0.0",
+    "@midnight-ntwrk/ledger": "^4.0.0",
+    "@midnight-ntwrk/ledger-v8": "^8.0.3",
     "@midnight-ntwrk/midnight-js-contracts": "^4.0.2",
     "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "3.1.0",
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "^4.0.2",
@@ -26,15 +29,24 @@
     "@midnight-ntwrk/midnight-js-network-id": "3.1.0",
     "@midnight-ntwrk/midnight-js-node-zk-config-provider": "^4.0.2",
     "@midnight-ntwrk/midnight-js-utils": "3.1.0",
+    "@midnight-ntwrk/wallet-sdk-address-format": "^3.1.0",
+    "@midnight-ntwrk/wallet-sdk-dust-wallet": "^3.0.0",
+    "@midnight-ntwrk/wallet-sdk-facade": "^3.0.0",
+    "@midnight-ntwrk/wallet-sdk-hd": "^3.0.1",
+    "@midnight-ntwrk/wallet-sdk-shielded": "^2.1.0",
+    "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "^2.1.0",
     "@upstash/redis": "^1.37.0",
     "@vercel/kv": "^3.0.0",
+    "bip39": "^3.1.0",
     "graphql": "^16.8.0",
     "graphql-ws": "^5.16.0",
     "lightweight-charts": "^4.2.3",
     "next": "^15.2.6",
     "pinata": "^1.0.0",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "rxjs": "^7.8.2",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "^22",
