@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import { PUBLIC_NETWORK_ID } from '@/lib/network';
 
 export default function LaunchPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function LaunchPage() {
     try {
       const wallets = Object.values(window.midnight);
       if (!wallets.length) { alert("No Midnight wallet found"); return; }
-      const api = await wallets[0].connect("preprod");
+      const api = await wallets[0].connect(PUBLIC_NETWORK_ID);
       const config = await api.getConfiguration();
       const { deployBondingCurveViaWallet } = await import("@/lib/contractWiring");
       const treasuryKey = process.env.NEXT_PUBLIC_TREASURY_PK ?? "0".repeat(64);

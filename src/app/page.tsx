@@ -8,6 +8,7 @@ type TokenRecord = any;
 import {
   fmtDust, fmtMcap, bondingProgress, spotPrice, kothScore,
 } from '@/lib/midnight/bondingCurve';
+import { PUBLIC_FAUCET_URL, PUBLIC_NETWORK_LABEL } from '@/lib/network';
 
 type SortMode = 'bump' | 'new' | 'mcap' | 'graduated';
 
@@ -64,7 +65,7 @@ export default function HomePage() {
           <div style={{ marginBottom: 14 }}>
             <span className="badge badge-violet">
               <span className="live-dot" />
-              Preprod Live
+              {PUBLIC_NETWORK_LABEL} live
             </span>
           </div>
 
@@ -83,7 +84,7 @@ export default function HomePage() {
             <Link href="/launch">
               <button className="btn btn-primary" style={{ fontSize: 15, padding: '12px 26px' }}>🚀 Launch a token</button>
             </Link>
-            <a href="https://faucet.preprod.midnight.network" target="_blank" rel="noopener noreferrer">
+            <a href={PUBLIC_FAUCET_URL} target="_blank" rel="noopener noreferrer">
               <button className="btn btn-secondary" style={{ fontSize: 15, padding: '12px 26px' }}>🚰 Get testnet DUST</button>
             </a>
           </div>

@@ -20,6 +20,7 @@ import type {
   ConnectedAPI,
   Configuration,
 } from '@midnight-ntwrk/dapp-connector-api';
+import { PUBLIC_NETWORK_ID } from '@/lib/network';
 
 /** Methods we call right after connect — required by v4 so the wallet can prompt for permissions. */
 const CONNECT_HINT: Array<keyof WalletConnectedAPI> = [
@@ -101,16 +102,13 @@ interface WalletActions {
   connect(walletId?: string): Promise<void>;
   disconnect():               void;
   refreshBalances():          Promise<void>;
+  clearWalletError():         void;
   api: ConnectedAPI | null;
 }
 
 type WalletCtx = WalletState & WalletActions;
 
 const WalletContext = createContext<WalletCtx | null>(null);
-
-// ── Network ID ────────────────────────────────────────────────────────────────
-
-const NETWORK_ID = process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preprod';
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
@@ -150,7 +148,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         ? [preferredId, window.midnight[preferredId]]
         : wallets[0];
 
-      const connected = await walletAPI.connect(NETWORK_ID);
+      const connected = await walletAPI.connect(PUBLIC_NETWORK_ID);
 
       // v4: ask the wallet which RPC methods we need (permissions / unlock prompts)
       if (typeof connected.hintUsage === 'function') {
@@ -169,6 +167,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         ]);
 
       const dustBalance = parseDustBalance(dustBalRaw);
+
+      if (
+        config.networkId &&
+        config.networkId !== PUBLIC_NETWORK_ID
+      ) {
+        throw new Error(
+          `Network ID mismatch: wallet reports "${config.networkId}" but this app is set to "${PUBLIC_NETWORK_ID}".`,
+        );
+      }
 
       if (seq !== connectSeqRef.current) return;
 
@@ -204,6 +211,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (savedWalletId) void connect(savedWalletId);
   }, [connect]);
 
+  const clearWalletError = useCallback(() => {
+    setState(s => (s.error ? { ...s, error: null } : s));
+  }, []);
+
   const disconnect = useCallback(() => {
     setConnectedAPI(null);
     setState({
@@ -230,6 +241,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       connect,
       disconnect,
       refreshBalances,
+      clearWalletError,
       api: connectedAPI,
     }}>
       {children}

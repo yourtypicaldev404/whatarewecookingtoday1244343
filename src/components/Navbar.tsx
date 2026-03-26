@@ -1,26 +1,12 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
 import { useWallet } from '@/lib/wallet/WalletProvider';
-
-function getLaceStoreUrl(): string {
-  const ua = navigator.userAgent;
-  if (ua.includes('Firefox/')) return 'https://addons.mozilla.org/firefox/addon/lace-wallet/';
-  if (ua.includes('Edg/')) return 'https://microsoftedge.microsoft.com/addons/detail/lace/efeiemlfnahiidnjglmehaihacglceia';
-  return 'https://chrome.google.com/webstore/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk';
-}
+import { PUBLIC_NETWORK_LABEL } from '@/lib/network';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { connected, connecting, connect, disconnect, error } = useWallet();
-
-  // If wallet connect failed because no Midnight wallet is installed, redirect to store
-  useEffect(() => {
-    if (error && error.toLowerCase().includes('no midnight')) {
-      window.location.href = getLaceStoreUrl();
-    }
-  }, [error]);
+  const { connected, connecting, connect, disconnect } = useWallet();
 
   return (
     <nav style={{ position:'fixed', top:0, left:0, right:0, zIndex:100, height:56, background:'rgba(5,5,8,0.88)', backdropFilter:'blur(20px)', borderBottom:'1px solid rgba(255,255,255,0.06)', display:'flex', alignItems:'center', padding:'0 20px', gap:14 }}>
@@ -41,7 +27,7 @@ export default function Navbar() {
 
       <div style={{ flex:1 }} />
 
-      <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--neon-amber)', background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:6, padding:'3px 7px', textTransform:'uppercase', letterSpacing:'0.08em' }}>preprod</div>
+      <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--neon-amber)', background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:6, padding:'3px 7px', textTransform:'uppercase', letterSpacing:'0.08em' }} title="Midnight network for this deployment">{PUBLIC_NETWORK_LABEL}</div>
 
       <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0 }}>
         <button
@@ -53,11 +39,6 @@ export default function Navbar() {
             <><span style={{ width:6, height:6, borderRadius:'50%', background:'var(--neon-green)', boxShadow:'0 0 5px var(--neon-green)' }} />Connected</>
           ) : connecting ? '⏳ Connecting…' : <>🌙 Connect Lace</>}
         </button>
-        {error ? (
-          <span role="alert" style={{ maxWidth:280, fontFamily:'var(--font-mono)', fontSize:11, color:'#fca5a5', lineHeight:1.35, textAlign:'right' }}>
-            {error}
-          </span>
-        ) : null}
       </div>
     </nav>
   );
