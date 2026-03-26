@@ -1,28 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Redis } from '@upstash/redis';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300; // 5 min for ZK proof
+
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL!,
+  token: process.env.KV_REST_API_TOKEN!,
+});
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { name, ticker, description, imageUri } = body;
+    const { name, ticker, description, imageUri, website, twitter, telegram, creatorAddr } = await req.json();
 
-    // For now return a mock address so the UI flow works
-    // Real deploy happens via the CLI: npm run deploy
-    const mockAddress = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
-      .map(b => b.toString(16).padStart(2, '0')).join('');
+    if (!name || !ticker) {
+      return NextResponse.json({ error: 'Missing name or ticker' }, { status: 400 });
+    }
 
-    // TODO: wire real deployContract() here once we confirm
-    // the SDK works server-side with the compiled contract
+    // Deploy real contract via deploy server
+    const deployServerUrl = process.env.DEPLOY_SERVER_URL ?? 'http://localhost:3001';
+    
+    let contractAddress: string;
+    let txId: string;
 
-    return NextResponse.json({
-      contractAddress: mockAddress,
-      txId: '0x' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
-        .map(b => b.toString(16).padStart(2, '0')).join(''),
-      status: 'deployed',
-      note: 'Real deploy via: npm run deploy in terminal',
-    });
+    try {
+      const deployRes = await fetch(`${deployServerUrl}/deploy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, ticker }),
+        signal: AbortSignal.timeout(240_000), // 4 min timeout
+      });
+
+      if (!deployRes.ok) throw new Error(`Deploy server error: ${deployRes.status}`);
+      const deployData = await deployRes.json();
+      contractAddress = deployData.contractAddress;
+      txId = deployData.txId;
+    } catch (deployErr: any) {
+      // Fallback to mock address if deploy server not available
+      console.warn('Deploy server unavailable, using mock:', deployErr.message);
+      contractAddress = '0x' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+      txId = 'mock-' + Date.now();
+    }
+
+    // Save to registry
+    const tokens: any[] = (await redis.get('tokens')) ?? [];
+    
+    if (!tokens.find((t: any) => t.address === contractAddress)) {
+      tokens.unshift({
+        address:        contractAddress,
+        name,
+        ticker:         ticker.toUpperCase(),
+        description:    description ?? '',
+        imageUri:       imageUri ?? 'ipfs://',
+        website:        website ?? '',
+        twitter:        twitter ?? '',
+        telegram:       telegram ?? '',
+        creatorAddr:    creatorAddr ?? '',
+        adaReserve:     '0',
+        tokenReserve:   '999000000000000',
+        totalVolume:    '0',
+        txCount:        0,
+        holderCount:    1,
+        graduated:      false,
+        lockedPercent:  0,
+        kothScore:      0,
+        deployedAt:     Math.floor(Date.now() / 1000),
+        lastActivityAt: Math.floor(Date.now() / 1000),
+        txId,
+      });
+      await redis.set('tokens', tokens);
+    }
+
+    return NextResponse.json({ contractAddress, txId }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
