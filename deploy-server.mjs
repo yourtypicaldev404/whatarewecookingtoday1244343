@@ -109,6 +109,8 @@ const PROOF =
 const SEED      = process.env.DEPLOYER_SEED ?? '971da3750a45a3812c732f8b70ccb9d8c7e7b55e65700b87f5346fc1c7d1a952';
 const TREASURY  = process.env.TREASURY_SEED ?? SEED;
 const PORT      = process.env.PORT ?? process.env.DEPLOY_SERVER_PORT ?? 3001;
+/** Listen address — use 0.0.0.0 so a remote machine can reach this server (browser on laptop, deploy on VPS). */
+const HOST      = process.env.HOST ?? '0.0.0.0';
 
 // Import contract
 const { Contract } = await import('./contracts/managed/bonding_curve/contract/index.js');
@@ -369,8 +371,8 @@ app.post('/trade/build', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Night.fun deploy server running on port ${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Night.fun deploy server listening on http://${HOST}:${PORT}`);
   console.log(`Network: ${NETWORK_ID} · indexer ${INDEXER}`);
   console.log(`Proof server: ${PROOF} (co-locate deploy + proof in the same region to cut latency)`);
 });
