@@ -20,19 +20,40 @@ function txIdFromBalancedHex(balancedTxHex: string): string {
   return ids[0] ?? tx.transactionHash();
 }
 
-export async function deployBondingCurveViaWallet(params: {
-  name: string;
-  ticker: string;
-  description: string;
-  imageUri: string;
-}) {
+export async function deployBondingCurveViaWallet(
+  params: { name: string; ticker: string; description: string; imageUri: string },
+  wallet: ConnectedAPI,
+): Promise<{ contractAddress: string; txId: string }> {
+  // Step 1: server builds the unproven deploy tx (no proving, fast)
   const res = await fetch('/api/deploy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
+    throw new Error(msg);
+  }
+  const { unprovenTxHex, contractAddress } = await res.json() as {
+    unprovenTxHex: string;
+    contractAddress: string;
+  };
+
+  // Step 2: Lace proves + balances (pops up for user to approve)
+  const balanced = await wallet.balanceUnsealedTransaction(unprovenTxHex);
+
+  // Step 3: derive tx id and submit
+  let txId: string;
+  try {
+    txId = txIdFromBalancedHex(balanced.tx);
+  } catch {
+    txId = `pending-${Date.now()}`;
+  }
+  await wallet.submitTransaction(balanced.tx);
+
+  return { contractAddress, txId };
 }
 
 export interface TradeParams {

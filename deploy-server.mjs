@@ -289,14 +289,30 @@ app.get('/health', (_, res) =>
   }),
 );
 
+/**
+ * Build an unproven deploy tx. The browser's Lace wallet proves + balances + submits.
+ * No wallet sync, no proof server call — fast.
+ */
 app.post('/deploy', async (req, res) => {
-  console.log('Deploying contract for:', req.body.name, req.body.ticker);
+  console.log('Building unproven deploy tx for:', req.body.name, req.body.ticker);
   try {
-    const result = await deployBondingCurve();
-    console.log('Deployed:', result.contractAddress);
-    res.json(result);
+    const zkConfig = new NodeZkConfigProvider(ZK_PATH);
+    const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
+    const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
+    const witnesses  = { treasurySecretKey: () => treasurySk };
+    const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
+      CompiledContract.withWitnesses(witnesses),
+      CompiledContract.withCompiledFileAssets(ZK_PATH),
+    );
+    const unprovenData = await createUnprovenDeployTx(
+      { zkConfigProvider: zkConfig, walletProvider: TRADE_WALLET_PROVIDER },
+      { compiledContract, initialPrivateState: {}, args: [creatorSk, treasurySk] },
+    );
+    const unprovenTxHex = Buffer.from(unprovenData.private.unprovenTx.serialize()).toString('hex');
+    console.log('Unproven deploy tx built, contractAddress:', unprovenData.public.contractAddress);
+    res.json({ unprovenTxHex, contractAddress: unprovenData.public.contractAddress });
   } catch (err) {
-    console.error('Deploy failed:', err.message);
+    console.error('Deploy build failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });

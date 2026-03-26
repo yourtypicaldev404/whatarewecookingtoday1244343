@@ -3,8 +3,10 @@ import { useState, useRef } from 'react';
 import Navbar from '@/components/Navbar';
 import ZkWorkOverlay from '@/components/ZkWorkOverlay';
 import { PUBLIC_NETWORK_LABEL } from '@/lib/network';
+import { useWallet } from '@/lib/wallet/WalletProvider';
 
 export default function LaunchPage() {
+  const { api, connected } = useWallet();
   const [step, setStep] = useState(0);
   const [deployBusy, setDeployBusy] = useState(false);
   const [deployPhase, setDeployPhase] = useState<'proving' | 'saving'>('proving');
@@ -18,6 +20,10 @@ export default function LaunchPage() {
 
   const handleLaunch = async () => {
     if (deployBusy) return;
+    if (!connected || !api) {
+      setDeployError('Connect your Lace wallet first.');
+      return;
+    }
     setDeployError(null);
     setDeployPhase('proving');
     setDeployBusy(true);
@@ -28,7 +34,7 @@ export default function LaunchPage() {
         ticker: form.ticker,
         description: form.description,
         imageUri: 'ipfs://',
-      });
+      }, api);
       setDeployPhase('saving');
       await fetch('/api/tokens', {
         method: 'POST',
