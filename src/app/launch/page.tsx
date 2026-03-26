@@ -12,6 +12,47 @@ export default function LaunchPage() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const steps = ['Token info','Socials','Initial buy','Launch'];
 
+
+  const handleLaunch = async () => {
+    if (typeof window === "undefined" || !window.midnight) {
+      alert("Please install and connect Lace wallet");
+      return;
+    }
+    try {
+      const wallets = Object.values(window.midnight);
+      if (!wallets.length) { alert("No Midnight wallet found"); return; }
+      const api = await wallets[0].connect("preprod");
+      const config = await api.getConfiguration();
+      const { deployBondingCurve } = await import("@/lib/contractWiring");
+      const treasuryKey = process.env.NEXT_PUBLIC_TREASURY_PK ?? "0".repeat(64);
+      const creatorKey = crypto.randomUUID().replace(/-/g,"").padEnd(64,"0");
+      alert("Generating ZK proof and deploying... this takes ~30 seconds");
+      const result = await deployBondingCurve({
+        creatorSkHex: creatorKey,
+        treasurySkHex: treasuryKey,
+        walletAPI: api,
+        config,
+      });
+      alert("Deployed! Contract: " + result.contractAddress);
+      await fetch("/api/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: result.contractAddress,
+          name: form.name,
+          ticker: form.ticker,
+          description: form.description,
+          imageUri: "ipfs://",
+          creatorAddr: "unknown",
+          txHash: result.txId,
+        }),
+      });
+      window.location.href = "/token/" + result.contractAddress;
+    } catch (err: any) {
+      alert("Deploy failed: " + err.message);
+    }
+  };
+
   return (
     <div style={{ minHeight:'100vh', paddingTop:56 }}>
       <Navbar />
@@ -126,8 +167,8 @@ export default function LaunchPage() {
                   </div>
                 ))}
               </div>
-              <button className="btn btn-primary" style={{ width:'100%', fontSize:15, padding:14 }}>
-                🚀 Launch {form.ticker||'token'} — connect Lace wallet to deploy
+              <button className="btn btn-primary" style={{ width:'100%', fontSize:15, padding:14 }} onClick={handleLaunch}>
+                🚀 Launch {form.ticker||'token'} on Preprod
               </button>
             </div>
           )}

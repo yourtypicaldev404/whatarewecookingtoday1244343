@@ -138,12 +138,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const connected = await walletAPI.connect(NETWORK_ID);
 
       // Pull wallet info
+      console.log('[Wallet] Connected wallet:', walletId, 'API:', Object.keys(connected));
       const [config, dustBalance, unshieldedAddr, dustAddr, unshieldedBals] =
         await Promise.all([
           connected.getConfiguration(),
-          connected.getDustBalance(),
-          connected.getUnshieldedAddress(),
-          connected.getDustAddress(),
+          connected.getDustBalance().then((r: any) => typeof r === "bigint" ? r : BigInt(r?.value ?? r?.amount ?? 0)),
+          connected.getUnshieldedAddress().then((r: any) => typeof r === "string" ? r : r?.address ?? r?.bech32 ?? JSON.stringify(r)),
+          connected.getDustAddress().then((r: any) => typeof r === "string" ? r : r?.address ?? r?.bech32 ?? ""),
           connected.getUnshieldedBalances(),
         ]);
 
@@ -160,6 +161,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         error:          null,
       });
 
+      console.log('[Wallet] State:', { config, dustBalance, unshieldedAddr, dustAddr });
       localStorage.setItem('nightfun-walletId', walletId);
 
     } catch (err) {
@@ -173,7 +175,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setConnectedAPI(null);
     setState({
       connected: false, walletId: null, unshieldedAddr: null,
-      dustAddr: null, dustBalance: 0n, tokenBalances: {},
+      dustAddr: null, dustBalance: BigInt(0), tokenBalances: {},
       serviceConfig: null, connecting: false, error: null,
     });
     localStorage.removeItem('nightfun-walletId');
@@ -210,14 +212,21 @@ export function useWallet() {
 }
 
 // Format a Midnight address for display: mn_addr1...abcd
-export function shortAddr(addr: string): string {
-  if (!addr || addr.length < 12) return addr;
-  return `${addr.slice(0, 10)}…${addr.slice(-4)}`;
+export function shortAddr(addr: string | null | undefined): string {
+  if (!addr || typeof addr !== "string") return "";
+  if (addr.length < 12) return addr;
+  return addr.slice(0, 10) + "..." + addr.slice(-4);
 }
 
 // Format DUST balance (6 decimals)
-export function formatDustBalance(tDust: bigint): string {
-  const whole = tDust / 1_000_000n;
-  const frac  = (tDust % 1_000_000n).toString().padStart(6, '0').slice(0, 2);
-  return `${whole.toLocaleString()}.${frac}`;
+export function formatDustBalance(tDust: unknown): string {
+  try {
+    if (!tDust) return "0.00";
+    const big = typeof tDust === "bigint" ? tDust : BigInt(String(tDust));
+    const whole = big / BigInt(1000000);
+    const frac = (big % BigInt(1000000)).toString().padStart(6, "0").slice(0, 2);
+    return whole.toLocaleString() + "." + frac;
+  } catch {
+    return "0.00";
+  }
 }

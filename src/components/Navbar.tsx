@@ -82,7 +82,7 @@ export default function Navbar() {
           flexShrink: 0,
         }}>
           <span style={{ color: 'var(--neon-cyan)', fontSize: 13 }}>₾</span>
-          <span style={{ color: 'var(--text-primary)' }}>{formatDustBalance(dustBalance)}</span>
+          <span style={{ color: 'var(--text-primary)' }}>{formatDustBalance(dustBalance ?? BigInt(0))}</span>
         </div>
       )}
 
@@ -120,7 +120,7 @@ export default function Navbar() {
         {connected ? (
           <>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--neon-green)', boxShadow: '0 0 5px var(--neon-green)' }} />
-            {shortAddr(unshieldedAddr ?? '')}
+            {unshieldedAddr ? shortAddr(unshieldedAddr) : "Connected"}
           </>
         ) : connecting ? (
           '⏳ Connecting…'
