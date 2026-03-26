@@ -284,14 +284,21 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
-app.get('/health', (_, res) =>
+app.get('/health', (_, res) => {
+  const cpk = TRADE_WALLET_PROVIDER.getCoinPublicKey();
   res.json({
     status: 'ok',
     networkId: NETWORK_ID,
     proofServer: PROOF,
-    v: 8,
-  }),
-);
+    v: 9,
+    debug_cpk_type: typeof cpk,
+    debug_cpk_ctor: cpk?.constructor?.name ?? 'null',
+    debug_cpk_len: cpk?.length ?? 'n/a',
+    debug_cpk_preview: String(cpk).slice(0, 80),
+    debug_has_toHexString: typeof cpk?.toHexString,
+    debug_has_buffer: String(typeof cpk?.buffer),
+  });
+});
 
 /**
  * Build an unproven deploy tx. The browser's Lace wallet proves + balances + submits.
