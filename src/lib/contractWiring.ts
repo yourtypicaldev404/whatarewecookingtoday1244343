@@ -24,7 +24,10 @@ export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
   wallet: ConnectedAPI,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Step 1: server builds the unproven deploy tx (no proving, fast)
+  // Step 1: warm-start the deploy server (Railway sleeps on free tier)
+  fetch('/api/health').catch(() => {});
+
+  // Step 2: server builds the unproven deploy tx (no proving, fast)
   const res = await fetch('/api/deploy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

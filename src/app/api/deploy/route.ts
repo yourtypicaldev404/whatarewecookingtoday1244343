@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // just building unproven tx — no proof needed
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, ticker }),
-      signal: AbortSignal.timeout(55_000),
+      signal: AbortSignal.timeout(240_000),
     });
 
     if (!deployRes.ok) {
