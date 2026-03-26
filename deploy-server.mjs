@@ -255,8 +255,7 @@ app.post('/deploy', async (req, res) => {
 });
 
 /**
- * Build + prove a buy/sell call using the *caller's* shielded keys (from Lace).
- * Returns a proven transaction hex for the browser wallet to balance (fees) and submit.
+ * Build an unproven buy/sell call tx. The browser's Lace wallet proves + balances + submits.
  */
 app.post('/trade/build', async (req, res) => {
   const {
@@ -266,20 +265,12 @@ app.post('/trade/build', async (req, res) => {
     tokensOut,
     tokensIn,
     adaOut,
-    coinPublicKeyHex,
-    shieldedEncryptionPublicKeyHex,
   } = req.body;
 
   console.log(`Trade build: ${action} on ${contractAddress}`);
 
   if (!contractAddress || !action || !['buy', 'sell'].includes(action)) {
     return res.status(400).json({ error: 'Missing contractAddress or invalid action (buy|sell)' });
-  }
-  if (!coinPublicKeyHex || !shieldedEncryptionPublicKeyHex) {
-    return res.status(400).json({
-      error:
-        'Missing coinPublicKeyHex or shieldedEncryptionPublicKeyHex — connect Lace and pass getShieldedAddresses()',
-    });
   }
   if (action === 'buy' && (adaIn === undefined || tokensOut === undefined)) {
     return res.status(400).json({ error: 'buy requires adaIn and tokensOut' });
@@ -292,17 +283,12 @@ app.post('/trade/build', async (req, res) => {
     const t0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
     const elapsed = () => Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - t0);
 
-    const stubWallet = {
-      getCoinPublicKey: () => coinPublicKeyHex,
-      getEncryptionPublicKey: () => shieldedEncryptionPublicKeyHex,
-    };
-
     const zkConfig = new NodeZkConfigProvider(ZK_PATH);
     const publicDataProvider = indexerPublicDataProvider(INDEXER, INDEXERWS);
     const providers = {
       zkConfigProvider: zkConfig,
       publicDataProvider,
-      walletProvider: stubWallet,
+      walletProvider: {},
     };
 
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
@@ -328,40 +314,11 @@ app.post('/trade/build', async (req, res) => {
       (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeUnproven,
     );
 
-    const tx = unsubmitted.private.unprovenTx;
-    const tBeforeStates = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const { ledgerParameters } = await getPublicStates(publicDataProvider, contractAddress);
-    const publicStatesMs = Math.round(
-      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeStates,
-    );
-
-    const costModel = ledgerParameters.transactionCostModel.runtimeCostModel;
-    const proofProvider = httpClientProofProvider(PROOF, zkConfig);
-    const tBeforeProve = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const proven = await tx.prove(proofProvider, costModel);
-    const proveMs = Math.round(
-      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeProve,
-    );
-
-    const tBeforeSerialize = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const provenTxHex = Buffer.from(proven.serialize()).toString('hex');
-    const serializeMs = Math.round(
-      (typeof performance !== 'undefined' ? performance.now() : Date.now()) - tBeforeSerialize,
-    );
+    const unprovenTxHex = Buffer.from(unsubmitted.private.unprovenTx.serialize()).toString('hex');
 
     const profile = {
       createUnprovenMs,
-      publicStatesMs,
-      proveMs,
-      serializeMs,
       serverTotalMs: elapsed(),
-      proofServerHost: (() => {
-        try {
-          return new URL(PROOF).host;
-        } catch {
-          return 'unknown';
-        }
-      })(),
     };
 
     console.log(
@@ -370,12 +327,12 @@ app.post('/trade/build', async (req, res) => {
           action,
           contractAddress,
           ...profile,
-          note: 'proveMs is ZK proving; createUnprovenMs+publicStatesMs is indexer/ledger setup',
+          note: 'Lace wallet proves + balances; server only builds unproven tx',
         },
       }),
     );
 
-    res.json({ provenTxHex, contractAddress, action, profile });
+    res.json({ unprovenTxHex, contractAddress, action, profile });
   } catch (err) {
     console.error('Trade build failed:', err.message);
     res.status(500).json({ error: err.message });

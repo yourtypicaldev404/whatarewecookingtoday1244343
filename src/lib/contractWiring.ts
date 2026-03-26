@@ -47,11 +47,7 @@ export interface TradeParams {
 /** Timing from deploy server + Next proxy (see deploy-server /trade/build). */
 export interface TradeBuildProfile {
   createUnprovenMs: number;
-  publicStatesMs: number;
-  proveMs: number;
-  serializeMs: number;
   serverTotalMs: number;
-  proofServerHost: string;
   /** Time for browser → Vercel → deploy server → back (includes all server work). */
   proxyRoundTripMs?: number;
   /** Set on the client after Lace balance + submit. */
@@ -91,10 +87,10 @@ function tradeBuildErrorMessage(status: number, body: string): string {
 }
 
 /**
- * POST /api/trade → deploy server: unproven tx + ZK prove. Does not touch the wallet yet.
+ * POST /api/trade → deploy server: builds unproven tx. Does not touch the wallet yet.
  */
-export async function buildTradeProvenTx(params: TradeParams & { coinPublicKeyHex: string; shieldedEncryptionPublicKeyHex: string }): Promise<{
-  provenTxHex: string;
+export async function buildTradeProvenTx(params: TradeParams): Promise<{
+  unprovenTxHex: string;
   profile: TradeBuildProfile;
 }> {
   const res = await fetch('/api/trade', {
@@ -115,33 +111,29 @@ export async function buildTradeProvenTx(params: TradeParams & { coinPublicKeyHe
   }
 
   const body = (await res.json()) as {
-    provenTxHex: string;
+    unprovenTxHex: string;
     profile?: TradeBuildProfile;
   };
-  if (!body.provenTxHex) throw new Error('Trade build returned no provenTxHex');
+  if (!body.unprovenTxHex) throw new Error('Trade build returned no unprovenTxHex');
   return {
-    provenTxHex: body.provenTxHex,
+    unprovenTxHex: body.unprovenTxHex,
     profile: body.profile ?? {
       createUnprovenMs: 0,
-      publicStatesMs: 0,
-      proveMs: 0,
-      serializeMs: 0,
       serverTotalMs: 0,
-      proofServerHost: '',
     },
   };
 }
 
 /**
- * Balance fees in Lace and submit the proven transaction hex from {@link buildTradeProvenTx}.
+ * Prove, balance fees in Lace, and submit the unproven transaction hex from {@link buildTradeProvenTx}.
  */
 export async function finalizeTradeInWallet(
   wallet: ConnectedAPI,
-  provenTxHex: string,
+  unprovenTxHex: string,
   meta: Pick<TradeParams, 'contractAddress' | 'action'>,
 ): Promise<Pick<TradeResult, 'txId' | 'walletMs'>> {
   const w0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
-  const balanced = await wallet.balanceUnsealedTransaction(provenTxHex);
+  const balanced = await wallet.balanceUnsealedTransaction(unprovenTxHex);
   let txId: string;
   try {
     txId = txIdFromBalancedHex(balanced.tx);
@@ -156,22 +148,16 @@ export async function finalizeTradeInWallet(
 }
 
 /**
- * 1) POST /api/trade → deploy server builds circuit call + proves (ZK) using your shielded keys.
- * 2) Lace balances fees / unshielded inputs and submits — you approve in the wallet.
+ * 1) POST /api/trade → deploy server builds unproven circuit call tx.
+ * 2) Lace proves (ZK) + balances fees / unshielded inputs and submits — you approve in the wallet.
  */
 export async function executeTradeWithWallet(
   params: TradeParams,
   wallet: ConnectedAPI,
 ): Promise<TradeResult> {
-  const shielded = await wallet.getShieldedAddresses();
+  const { unprovenTxHex, profile } = await buildTradeProvenTx(params);
 
-  const { provenTxHex, profile } = await buildTradeProvenTx({
-    ...params,
-    coinPublicKeyHex: shielded.shieldedCoinPublicKey,
-    shieldedEncryptionPublicKeyHex: shielded.shieldedEncryptionPublicKey,
-  });
-
-  const { txId, walletMs } = await finalizeTradeInWallet(wallet, provenTxHex, params);
+  const { txId, walletMs } = await finalizeTradeInWallet(wallet, unprovenTxHex, params);
 
   return {
     txId,

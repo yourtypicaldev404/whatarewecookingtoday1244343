@@ -86,16 +86,11 @@ export default function TokenPage() {
         };
       }
 
-      const shielded = await api.getShieldedAddresses();
-      const { provenTxHex, profile } = await buildTradeProvenTx({
-        ...params,
-        coinPublicKeyHex: shielded.shieldedCoinPublicKey,
-        shieldedEncryptionPublicKeyHex: shielded.shieldedEncryptionPublicKey,
-      });
+      const { unprovenTxHex, profile } = await buildTradeProvenTx(params);
       setTradeProfile(profile);
       setTradePhase('wallet');
 
-      const { txId, walletMs } = await finalizeTradeInWallet(api, provenTxHex, {
+      const { txId, walletMs } = await finalizeTradeInWallet(api, unprovenTxHex, {
         contractAddress: params.contractAddress,
         action: params.action,
       });
@@ -259,7 +254,7 @@ export default function TokenPage() {
                   <br/>
                   {txResult.profile ? (
                     <span style={{ color:'var(--text-muted)', display:'block', marginTop:6 }}>
-                      ZK proof {Math.round(txResult.profile.proveMs / 1000)}s · wallet {txResult.profile.walletMs != null ? `${(txResult.profile.walletMs / 1000).toFixed(1)}s` : '—'}
+                      Server {Math.round(txResult.profile.serverTotalMs / 1000)}s · wallet {txResult.profile.walletMs != null ? `${(txResult.profile.walletMs / 1000).toFixed(1)}s` : '—'}
                       {txResult.profile.proxyRoundTripMs != null
                         ? ` · round-trip ${(txResult.profile.proxyRoundTripMs / 1000).toFixed(1)}s`
                         : ''}
