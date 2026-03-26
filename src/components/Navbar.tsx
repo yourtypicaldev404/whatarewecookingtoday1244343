@@ -29,7 +29,21 @@ export default function Navbar() {
       <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--neon-amber)', background:'rgba(251,191,36,0.08)', border:'1px solid rgba(251,191,36,0.2)', borderRadius:6, padding:'3px 7px', textTransform:'uppercase', letterSpacing:'0.08em' }}>preprod</div>
 
       <button
-        onClick={connected ? disconnect : () => connect()}
+        onClick={() => {
+          if (connected) {
+            disconnect();
+          } else if (typeof window !== 'undefined' && !window.midnight) {
+            // Lace not installed — send to appropriate extension store
+            const ua = navigator.userAgent;
+            const isFirefox = ua.includes('Firefox/');
+            const storeUrl = isFirefox
+              ? 'https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk' // Lace not on Firefox; point to Chrome store
+              : 'https://chromewebstore.google.com/detail/lace/gafhhkghbfjjkeiendhlofajokpaflmk';
+            window.open(storeUrl, '_blank', 'noopener');
+          } else {
+            connect();
+          }
+        }}
         disabled={connecting}
         style={{ display:'flex', alignItems:'center', gap:6, background: connected ? 'var(--night-raised)' : 'linear-gradient(135deg,var(--neon-violet),#6d28d9)', color:'#fff', border: connected ? '1px solid var(--night-border-active)' : 'none', borderRadius:9, padding:'6px 14px', fontFamily:'var(--font-display)', fontWeight:600, fontSize:12, cursor:'pointer', flexShrink:0 }}>
         {connected ? (

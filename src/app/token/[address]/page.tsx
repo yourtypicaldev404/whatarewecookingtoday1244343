@@ -3,13 +3,17 @@ import PriceChart from '@/components/PriceChart';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET } from '@/lib/midnight/bondingCurve';
+import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
+import { executeTrade } from '@/lib/contractWiring';
 
 export default function TokenPage() {
   const { address } = useParams<{ address: string }>();
   const [token, setToken] = useState<any>(null);
   const [tradeMode, setTradeMode] = useState('buy');
   const [amount, setAmount] = useState('');
+  const [trading, setTrading] = useState(false);
+  const [txResult, setTxResult] = useState<{ txId: string } | null>(null);
+  const [tradeError, setTradeError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/tokens?limit=100')
@@ -27,6 +31,101 @@ export default function TokenPage() {
   const tok = token ? BigInt(token.tokenReserve) : 999000000000000n;
   const quote = tradeMode==='buy' && adaIn>0n ? getBuyQuote(adaIn, ada, tok) : tradeMode==='sell' && tokensIn>0n ? getSellQuote(tokensIn, ada, tok) : null;
   const progress = bondingProgress(ada);
+
+  async function handleTrade() {
+    if (!amount || !token) return;
+    setTrading(true);
+    setTxResult(null);
+    setTradeError(null);
+
+    try {
+      const ada = BigInt(token.adaReserve);
+      const tok = BigInt(token.tokenReserve);
+
+      let params: Parameters<typeof executeTrade>[0];
+
+      if (tradeMode === 'buy') {
+        const adaInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
+        const fee = (adaInRaw * 100n) / 10_000n;
+        const netAda = adaInRaw - fee;
+        const tokensOut = calcTokensOut(netAda, ada, tok);
+        params = {
+          contractAddress: address,
+          action: 'buy',
+          adaIn: adaInRaw.toString(),
+          tokensOut: tokensOut.toString(),
+        };
+      } else {
+        const tokensInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000));
+        const grossAda = calcAdaOut(tokensInRaw, ada, tok);
+        const fee = (grossAda * 100n) / 10_000n;
+        const netAda = grossAda - fee;
+        params = {
+          contractAddress: address,
+          action: 'sell',
+          tokensIn: tokensInRaw.toString(),
+          adaOut: netAda.toString(),
+        };
+      }
+
+      const result = await executeTrade(params);
+      setTxResult({ txId: result.txId });
+
+      // Update reserves in Redis after confirmed trade
+      const adaCurrent = BigInt(token.adaReserve);
+      const tokCurrent = BigInt(token.tokenReserve);
+      let newAda: bigint, newTok: bigint, newVol: bigint;
+
+      if (tradeMode === 'buy') {
+        const adaInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
+        const fee = (adaInRaw * 100n) / 10_000n;
+        const netAda = adaInRaw - fee;
+        const tokensOut = calcTokensOut(netAda, adaCurrent, tokCurrent);
+        newAda = adaCurrent + netAda;
+        newTok = tokCurrent - tokensOut;
+        newVol = BigInt(token.totalVolume) + adaInRaw;
+      } else {
+        const tokensInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000));
+        const grossAda = calcAdaOut(tokensInRaw, adaCurrent, tokCurrent);
+        const fee = (grossAda * 100n) / 10_000n;
+        const netAda = grossAda - fee;
+        newAda = adaCurrent - grossAda;
+        newTok = tokCurrent + tokensInRaw;
+        newVol = BigInt(token.totalVolume) + netAda;
+      }
+
+      const graduated = newAda >= GRADUATION_TARGET;
+
+      await fetch(`/api/tokens/${address}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          adaReserve: newAda.toString(),
+          tokenReserve: newTok.toString(),
+          totalVolume: newVol.toString(),
+          txCount: (token.txCount ?? 0) + 1,
+          graduated,
+          lastActivityAt: Math.floor(Date.now() / 1000),
+        }),
+      });
+
+      // Refresh token state
+      setToken((prev: any) => ({
+        ...prev,
+        adaReserve: newAda.toString(),
+        tokenReserve: newTok.toString(),
+        totalVolume: newVol.toString(),
+        txCount: (prev.txCount ?? 0) + 1,
+        graduated,
+      }));
+
+      setAmount('');
+    } catch (err: any) {
+      setTradeError(err.message ?? 'Trade failed');
+    } finally {
+      setTrading(false);
+    }
+  }
 
   if (!token) return <div style={{ minHeight:'100vh', paddingTop:56, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--text-muted)', fontFamily:'var(--font-mono)' }}><Navbar />Loading...</div>;
 
@@ -113,11 +212,30 @@ export default function TokenPage() {
                 </div>
               )}
 
+              {tradeError && (
+                <div style={{ background:'rgba(251,113,133,.1)', border:'1px solid rgba(251,113,133,.3)', borderRadius:8, padding:'8px 12px', marginBottom:10, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--neon-rose)' }}>
+                  {tradeError}
+                </div>
+              )}
+
+              {txResult && (
+                <div style={{ background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.3)', borderRadius:8, padding:'8px 12px', marginBottom:10, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--neon-green)' }}>
+                  Trade confirmed!<br/>
+                  <span style={{ color:'var(--text-muted)' }}>Tx: {txResult.txId.slice(0,16)}...</span>
+                </div>
+              )}
+
               <button
                 className={`btn btn-${tradeMode}`}
-                onClick={() => alert(`Real ZK trade coming soon!\nContract: ${address}\n\nFor now use the Midnight CLI to interact.`)}
+                onClick={handleTrade}
+                disabled={trading || !amount || !quote}
+                style={{ opacity: (trading || !amount || !quote) ? 0.6 : 1, cursor: (trading || !amount || !quote) ? 'not-allowed' : 'pointer' }}
               >
-                {tradeMode==='buy' ? `🟢 Buy ${token.ticker}` : `🔴 Sell ${token.ticker}`}
+                {trading
+                  ? 'Proving ZK transaction...'
+                  : tradeMode === 'buy'
+                    ? `Buy ${token.ticker}`
+                    : `Sell ${token.ticker}`}
               </button>
               <div style={{ textAlign:'center', fontFamily:'var(--font-mono)', fontSize:10, color:'var(--text-muted)', marginTop:8 }}>Non-custodial · ZK-protected · Midnight Preprod</div>
             </div>

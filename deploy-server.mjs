@@ -5,7 +5,7 @@ import fs from 'fs';
 import { WebSocket } from 'ws';
 import * as Rx from 'rxjs';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
-import { deployContract } from '@midnight-ntwrk/midnight-js-contracts';
+import { deployContract, findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
 import { httpClientProofProvider } from '@midnight-ntwrk/midnight-js-http-client-proof-provider';
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { NodeZkConfigProvider } from '@midnight-ntwrk/midnight-js-node-zk-config-provider';
@@ -139,6 +139,16 @@ async function deployBondingCurve() {
 
 // Express server
 const app = express();
+
+// CORS for cross-origin requests from Vercel frontend
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 app.use(express.json());
 
 app.get('/health', (_, res) => res.json({ status: 'ok' }));
@@ -151,6 +161,86 @@ app.post('/deploy', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('Deploy failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/trade', async (req, res) => {
+  const { contractAddress, action, adaIn, tokensOut, tokensIn, adaOut } = req.body;
+  console.log(`Trade request: ${action} on ${contractAddress}`);
+
+  if (!contractAddress || !action || !['buy', 'sell'].includes(action)) {
+    return res.status(400).json({ error: 'Missing contractAddress or invalid action (buy|sell)' });
+  }
+  if (action === 'buy' && (!adaIn || !tokensOut)) {
+    return res.status(400).json({ error: 'buy requires adaIn and tokensOut' });
+  }
+  if (action === 'sell' && (!tokensIn || !adaOut)) {
+    return res.status(400).json({ error: 'sell requires tokensIn and adaOut' });
+  }
+
+  try {
+    const { wallet, shieldedSK, dustSK } = await buildWallet(SEED);
+
+    const state = await Rx.firstValueFrom(
+      wallet.state().pipe(Rx.throttleTime(5000), Rx.filter(s => s.isSynced))
+    );
+    const walletProvider = {
+      getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),
+      getEncryptionPublicKey: () => state.shielded.encryptionPublicKey.toHexString(),
+      async balanceTx(tx, ttl) {
+        const recipe = await wallet.balanceUnboundTransaction(
+          tx,
+          { shieldedSecretKeys: shieldedSK, dustSecretKey: dustSK },
+          { ttl: ttl ?? new Date(Date.now() + 30 * 60 * 1000) }
+        );
+        return wallet.finalizeRecipe(recipe);
+      },
+      submitTx: (tx) => wallet.submitTransaction(tx),
+    };
+
+    const zkConfig = new NodeZkConfigProvider(ZK_PATH);
+    const providers = {
+      privateStateProvider: levelPrivateStateProvider({
+        privateStateStoreName: 'night-fun-trade-' + Date.now(),
+        privateStoragePasswordProvider: () => 'night-fun-secret-2026',
+        accountId: 'trader-' + Date.now(),
+      }),
+      publicDataProvider:  indexerPublicDataProvider(INDEXER, INDEXERWS),
+      zkConfigProvider:    zkConfig,
+      proofProvider:       httpClientProofProvider(PROOF, zkConfig),
+      walletProvider,
+      midnightProvider:    walletProvider,
+    };
+
+    const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
+    const witnesses = { treasurySecretKey: () => treasurySk };
+    const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
+      CompiledContract.withWitnesses(witnesses),
+      CompiledContract.withCompiledFileAssets(ZK_PATH),
+    );
+
+    const deployed = await findDeployedContract(providers, {
+      contractAddress,
+      contract: compiledContract,
+      privateStateId: 'bondingCurve-' + contractAddress,
+      initialPrivateState: {},
+    });
+
+    let txData;
+    if (action === 'buy') {
+      txData = await deployed.callTx.buy(BigInt(adaIn), BigInt(tokensOut));
+    } else {
+      txData = await deployed.callTx.sell(BigInt(tokensIn), BigInt(adaOut));
+    }
+
+    await wallet.stop();
+
+    const result = { txId: txData.public.txId, contractAddress, action };
+    console.log('Trade result:', result);
+    res.json(result);
+  } catch (err) {
+    console.error('Trade failed:', err.message);
     res.status(500).json({ error: err.message });
   }
 });
