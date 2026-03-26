@@ -1,6 +1,10 @@
 /**
  * Single source of truth for Midnight network across the app.
  *
+ * Production default: **preview** — set `NEXT_PUBLIC_NETWORK_ID=preview` on Vercel, `NETWORK_ID=preview`
+ * on Railway (deploy server), and the same network in Lace → Configure Midnight Nodes. Mixing
+ * Preview indexer with a Preprod wallet (or the reverse) causes “no public state” on trades.
+ *
  * Switch networks (Preview / Preprod / Mainnet) in one place:
  *   NEXT_PUBLIC_NETWORK_ID=preview | preprod | mainnet
  *

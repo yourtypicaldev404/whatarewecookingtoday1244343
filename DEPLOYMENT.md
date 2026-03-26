@@ -2,6 +2,18 @@
 
 What cannot be scripted in-repo (no access to your Vercel/Railway accounts) is listed as **you set in dashboard**. Everything else is in `package.json`, `docker-compose.yml`, and env examples.
 
+## Preview everywhere (recommended)
+
+Use **one** network end-to-end. Mismatch (e.g. Lace on Preprod, indexer on Preview) causes **“No public state found at contract address”** on buy/sell.
+
+| Layer | Set |
+|-------|-----|
+| **Lace** | Settings → Midnight → **Preview** node + prover URL for Preview |
+| **Vercel** | `NEXT_PUBLIC_NETWORK_ID=preview` and Preview indexer/RPC/proof from `.env.example` |
+| **Railway (deploy server)** | `NETWORK_ID=preview`, `PROOF_SERVER_URL=https://proof-server.preview.midnight.network` (defaults in code if unset for Preview) |
+
+Copy values from `.env.example` (top section — already Preview). Do not mix Preprod URLs with `NEXT_PUBLIC_NETWORK_ID=preview`.
+
 ## Local stack (one command)
 
 From the repo root, with Docker installed:

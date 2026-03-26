@@ -5,7 +5,6 @@ import { WebSocket } from "ws";
 import * as Rx from "rxjs";
 
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
-import { setNetworkId as setNetworkId2 } from "/tmp/set-network.mjs";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
 import { httpClientProofProvider } from "@midnight-ntwrk/midnight-js-http-client-proof-provider";
 import { indexerPublicDataProvider } from "@midnight-ntwrk/midnight-js-indexer-public-data-provider";
@@ -21,16 +20,33 @@ import * as ledger from "@midnight-ntwrk/ledger-v8";
 import { Contract } from "../contracts/managed/bonding_curve/contract/index.js";
 
 globalThis.WebSocket = WebSocket;
-setNetworkId("preprod");
-setNetworkId2("preprod");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ZK_PATH = path.resolve(__dirname, "../contracts/managed/bonding_curve");
 
-const INDEXER   = "https://indexer.preprod.midnight.network/api/v3/graphql";
-const INDEXERWS = "wss://indexer.preprod.midnight.network/api/v3/graphql/ws";
-const NODE      = "https://rpc.preprod.midnight.network";
-const PROOF     = "http://localhost:6300";
+/** Align with deploy-server.mjs + Vercel — default Preview. Override: NETWORK_ID=preprod node scripts/deploy-real.mjs */
+const NETWORK_ID = (process.env.NETWORK_ID ?? "preview").toLowerCase();
+const ENDPOINTS = {
+  preview: {
+    INDEXER: "https://indexer.preview.midnight.network/api/v4/graphql",
+    INDEXERWS: "wss://indexer.preview.midnight.network/api/v4/graphql/ws",
+    NODE: "https://rpc.preview.midnight.network",
+    PROOF: process.env.PROOF_SERVER_URL ?? "https://proof-server.preview.midnight.network",
+  },
+  preprod: {
+    INDEXER: "https://indexer.preprod.midnight.network/api/v3/graphql",
+    INDEXERWS: "wss://indexer.preprod.midnight.network/api/v3/graphql/ws",
+    NODE: "https://rpc.preprod.midnight.network",
+    PROOF: process.env.PROOF_SERVER_URL ?? "https://lace-proof-pub.preprod.midnight.network",
+  },
+};
+const ep = ENDPOINTS[NETWORK_ID] ?? ENDPOINTS.preview;
+const INDEXER = ep.INDEXER;
+const INDEXERWS = ep.INDEXERWS;
+const NODE = ep.NODE;
+const PROOF = ep.PROOF;
+
+setNetworkId(NETWORK_ID);
 
 function deriveKeys(seed) {
   const hd = HDWallet.fromSeed(Buffer.from(seed, "hex"));
@@ -44,6 +60,7 @@ function deriveKeys(seed) {
 }
 
 async function main() {
+  console.log(`Network: ${NETWORK_ID} (set NETWORK_ID=preprod to override)\n`);
   const dep  = JSON.parse(fs.readFileSync("deployment.json", "utf-8"));
   const seed = dep.walletSeed ?? dep.seed;
   if (!seed) throw new Error("No seed in deployment.json");
@@ -52,13 +69,13 @@ async function main() {
   const keys       = deriveKeys(seed);
   const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
   const dustSK     = ledger.DustSecretKey.fromSeed(keys[Roles.Dust]);
-  const keystore   = createKeystore(keys[Roles.NightExternal], "preprod");
+  const keystore   = createKeystore(keys[Roles.NightExternal], NETWORK_ID);
   const dustParams = ledger.LedgerParameters.initialParameters().dust;
 
   console.log("Address:", keystore.getBech32Address().toString());
 
   const sharedCfg = {
-    networkId: "preprod",
+    networkId: NETWORK_ID,
     indexerClientConnection: { indexerHttpUrl: INDEXER, indexerWsUrl: INDEXERWS },
   };
 
