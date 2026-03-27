@@ -20,28 +20,23 @@ function txIdFromBalancedHex(balancedTxHex: string): string {
   return ids[0] ?? tx.transactionHash();
 }
 
+/**
+ * Deploy a bonding curve token fully server-side.
+ * The deploy server (Railway) proves, balances, and submits using its own synced wallet.
+ * No Lace popup required — the server handles everything.
+ */
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
-  wallet: ConnectedAPI,
+  _wallet?: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Step 1: warm-start the deploy server (Railway sleeps on free tier)
-  fetch('/api/health').catch(() => {});
-
-  // Step 2: get user's ZK public keys from Lace so the server builds the tx
-  // with outputs directed to the user's address — required for balanceUnsealedTransaction to resolve.
-  console.log('[deploy] fetching user shielded addresses from Lace...');
-  const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = await wallet.getShieldedAddresses();
-  console.log('[deploy] got user cpk:', shieldedCoinPublicKey.slice(0, 20) + '...');
-
   onPhase?.('proving');
-  console.log('[deploy] calling /api/deploy (server proves ~60s)...');
+  console.log('[deploy] calling /api/deploy (server proves + submits, ~60–120s)...');
 
-  // Step 3: server builds + proves the deploy tx using user's ZK keys
   const res = await fetch('/api/deploy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...params, userCoinPublicKey: shieldedCoinPublicKey, userEncryptionPublicKey: shieldedEncryptionPublicKey }),
+    body: JSON.stringify(params),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -49,31 +44,12 @@ export async function deployBondingCurveViaWallet(
     try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
     throw new Error(msg);
   }
-  const { unprovenTxHex, contractAddress } = await res.json() as {
-    unprovenTxHex: string;
+  const { contractAddress, txId } = await res.json() as {
     contractAddress: string;
+    txId: string;
   };
-  console.log('[deploy] server returned provedTx, contractAddress:', contractAddress);
-
-  // Step 3: Lace balances (adds DUST fee inputs) + shows popup to sign
-  onPhase?.('signing');
-  console.log('[deploy] calling balanceUnsealedTransaction — Lace popup should appear...');
-  const balanced = await wallet.balanceUnsealedTransaction(unprovenTxHex);
-  console.log('[deploy] balanceUnsealedTransaction returned, deriving txId...');
-
-  // Step 4: derive tx id
-  let txId: string;
-  try {
-    txId = txIdFromBalancedHex(balanced.tx);
-  } catch {
-    txId = `pending-${Date.now()}`;
-  }
-
-  // Step 5: fire-and-forget submit — submitTransaction can hang waiting for node ACK
+  console.log('[deploy] server deployed! contractAddress:', contractAddress, '| txId:', txId);
   onPhase?.('submitting');
-  console.log('[deploy] submitting tx (fire-and-forget), txId:', txId);
-  wallet.submitTransaction(balanced.tx).catch(e => console.error('[deploy] submitTransaction error:', e));
-
   return { contractAddress, txId };
 }
 

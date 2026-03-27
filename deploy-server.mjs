@@ -170,6 +170,32 @@ function deriveShieldedKeysFromSeed(seed) {
 }
 const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
 
+// Warm wallet — initialized once at startup, reused for all server-side deploys.
+// buildWallet syncs the wallet; subsequent deploys skip the sync wait.
+let _walletReady = false;
+let _walletPromise = null;
+let _walletInstance = null;
+
+function ensureWalletReady() {
+  if (_walletReady) return Promise.resolve(_walletInstance);
+  if (!_walletPromise) {
+    _walletPromise = buildWallet(SEED).then(result => {
+      _walletInstance = result;
+      _walletReady = true;
+      console.log('[warm-wallet] Server wallet synced and ready');
+      return result;
+    }).catch(err => {
+      _walletPromise = null; // allow retry on next request
+      console.error('[warm-wallet] Init failed:', err.message);
+      throw err;
+    });
+  }
+  return _walletPromise;
+}
+
+// Kick off wallet sync at startup (non-blocking — requests wait if not yet ready)
+ensureWalletReady().catch(err => console.error('[warm-wallet] Startup error:', err.message));
+
 function deriveKeys(seed) {
   const hd = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
   if (hd.type !== 'seedOk') throw new Error('Bad seed');
@@ -290,7 +316,7 @@ app.get('/health', (_, res) => {
     status: 'ok',
     networkId: NETWORK_ID,
     proofServer: PROOF,
-    v: 12,
+    v: 13,
     debug_cpk_type: typeof cpk,
     debug_cpk_ctor: cpk?.constructor?.name ?? 'null',
     debug_cpk_len: cpk?.length ?? 'n/a',
@@ -301,47 +327,72 @@ app.get('/health', (_, res) => {
 });
 
 /**
- * Build an unproven deploy tx. The browser's Lace wallet proves + balances + submits.
- * No wallet sync, no proof server call — fast.
+ * Fully server-side deploy — no Lace wallet interaction required.
+ * Uses the warm server wallet (synced at startup) to build, prove, balance, and submit.
+ * Returns { contractAddress, txId } so the browser can redirect immediately.
  */
 app.post('/deploy', async (req, res) => {
-  const { name, ticker, userCoinPublicKey, userEncryptionPublicKey } = req.body;
-  console.log('Building unproven deploy tx for:', name, ticker,
-    '| userCpk:', userCoinPublicKey ? userCoinPublicKey.slice(0, 20) + '...' : 'none (using server keys)');
+  const { name, ticker } = req.body;
+  console.log('[deploy] Server-side full deploy for:', name, ticker);
   try {
-    const zkConfig = new NodeZkConfigProvider(ZK_PATH);
+    const { wallet, shieldedSK, dustSK } = await ensureWalletReady();
+
     const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
-    const witnesses  = { treasurySecretKey: () => treasurySk };
+
+    // Re-read synced state so coinPublicKey/encryptionPublicKey are up-to-date
+    const state = await Rx.firstValueFrom(
+      wallet.state().pipe(Rx.filter(s => s.isSynced))
+    );
+
+    const walletProvider = {
+      getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),
+      getEncryptionPublicKey: () => state.shielded.encryptionPublicKey.toHexString(),
+      async balanceTx(tx, ttl) {
+        const recipe = await wallet.balanceUnboundTransaction(
+          tx,
+          { shieldedSecretKeys: shieldedSK, dustSecretKey: dustSK },
+          { ttl: ttl ?? new Date(Date.now() + 30 * 60 * 1000) },
+        );
+        return wallet.finalizeRecipe(recipe);
+      },
+      submitTx: (tx) => wallet.submitTransaction(tx),
+    };
+
+    const zkConfig = new NodeZkConfigProvider(ZK_PATH);
+    const providers = {
+      privateStateProvider: levelPrivateStateProvider({
+        privateStateStoreName: 'night-fun-deploy-' + Date.now(),
+        privateStoragePasswordProvider: () => 'night-fun-secret-2026',
+        accountId: 'deployer-' + Date.now(),
+      }),
+      publicDataProvider: indexerPublicDataProvider(INDEXER, INDEXERWS),
+      zkConfigProvider:   zkConfig,
+      proofProvider:      httpClientProofProvider(PROOF, zkConfig),
+      walletProvider,
+      midnightProvider:   walletProvider,
+    };
+
+    const witnesses = { treasurySecretKey: () => treasurySk };
     const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
     );
 
-    // Use user's ZK keys if provided — Lace requires the tx ZK outputs to be directed
-    // to the user's own address or balanceUnsealedTransaction stalls after signing.
-    const walletProvider = (userCoinPublicKey && userEncryptionPublicKey)
-      ? { getCoinPublicKey: () => userCoinPublicKey, getEncryptionPublicKey: () => userEncryptionPublicKey }
-      : TRADE_WALLET_PROVIDER;
+    console.log('[deploy] Calling deployContract (prove + balance + submit)...');
+    const deployed = await deployContract(providers, {
+      compiledContract,
+      privateStateId:      'bondingCurve-' + Date.now(),
+      initialPrivateState: {},
+      args: [creatorSk, treasurySk],
+    });
 
-    // signingKey must be a hex string — the SDK schema validates it as ConstrainedPlainHex
-    const signingKey = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('hex');
-    const unprovenData = await createUnprovenDeployTx(
-      { zkConfigProvider: zkConfig, walletProvider },
-      { compiledContract, initialPrivateState: {}, args: [creatorSk, treasurySk], signingKey },
-    );
-    console.log('Unproven deploy tx built, contractAddress:', unprovenData.public.contractAddress);
-
-    // Lace's balanceUnsealedTransaction requires a proved (not proof-preimage) transaction.
-    // Prove it here on the server, then the browser only needs to balance + submit.
-    const proofProvider = httpClientProofProvider(PROOF, zkConfig);
-    console.log('Proving deploy tx via', PROOF, '...');
-    const provenTx = await proofProvider.proveTx(unprovenData.private.unprovenTx);
-    const provenTxHex = Buffer.from(provenTx.serialize()).toString('hex');
-    console.log('Deploy tx proved, returning to browser');
-    res.json({ unprovenTxHex: provenTxHex, contractAddress: unprovenData.public.contractAddress });
+    const contractAddress = deployed.deployTxData.public.contractAddress;
+    const txId = deployed.deployTxData.public.txId;
+    console.log('[deploy] Deployed! contractAddress:', contractAddress, '| txId:', txId);
+    res.json({ contractAddress, txId });
   } catch (err) {
-    console.error('Deploy build failed:', err.message, '\n', err.stack);
+    console.error('[deploy] Failed:', err.message, '\n', err.stack);
     res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
   }
 });
