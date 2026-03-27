@@ -290,7 +290,7 @@ app.get('/health', (_, res) => {
     status: 'ok',
     networkId: NETWORK_ID,
     proofServer: PROOF,
-    v: 11,
+    v: 12,
     debug_cpk_type: typeof cpk,
     debug_cpk_ctor: cpk?.constructor?.name ?? 'null',
     debug_cpk_len: cpk?.length ?? 'n/a',
@@ -305,11 +305,10 @@ app.get('/health', (_, res) => {
  * No wallet sync, no proof server call — fast.
  */
 app.post('/deploy', async (req, res) => {
-  console.log('Building unproven deploy tx for:', req.body.name, req.body.ticker);
+  const { name, ticker, userCoinPublicKey, userEncryptionPublicKey } = req.body;
+  console.log('Building unproven deploy tx for:', name, ticker,
+    '| userCpk:', userCoinPublicKey ? userCoinPublicKey.slice(0, 20) + '...' : 'none (using server keys)');
   try {
-    const _cpk = TRADE_WALLET_PROVIDER.getCoinPublicKey();
-    const _epk = TRADE_WALLET_PROVIDER.getEncryptionPublicKey();
-    console.log('[deploy] cpk type:', typeof _cpk, 'len:', _cpk?.length, 'epk type:', typeof _epk, 'len:', _epk?.length);
     const zkConfig = new NodeZkConfigProvider(ZK_PATH);
     const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
@@ -318,10 +317,17 @@ app.post('/deploy', async (req, res) => {
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
     );
+
+    // Use user's ZK keys if provided — Lace requires the tx ZK outputs to be directed
+    // to the user's own address or balanceUnsealedTransaction stalls after signing.
+    const walletProvider = (userCoinPublicKey && userEncryptionPublicKey)
+      ? { getCoinPublicKey: () => userCoinPublicKey, getEncryptionPublicKey: () => userEncryptionPublicKey }
+      : TRADE_WALLET_PROVIDER;
+
     // signingKey must be a hex string — the SDK schema validates it as ConstrainedPlainHex
     const signingKey = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('hex');
     const unprovenData = await createUnprovenDeployTx(
-      { zkConfigProvider: zkConfig, walletProvider: TRADE_WALLET_PROVIDER },
+      { zkConfigProvider: zkConfig, walletProvider },
       { compiledContract, initialPrivateState: {}, args: [creatorSk, treasurySk], signingKey },
     );
     console.log('Unproven deploy tx built, contractAddress:', unprovenData.public.contractAddress);

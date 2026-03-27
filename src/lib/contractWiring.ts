@@ -28,14 +28,20 @@ export async function deployBondingCurveViaWallet(
   // Step 1: warm-start the deploy server (Railway sleeps on free tier)
   fetch('/api/health').catch(() => {});
 
+  // Step 2: get user's ZK public keys from Lace so the server builds the tx
+  // with outputs directed to the user's address — required for balanceUnsealedTransaction to resolve.
+  console.log('[deploy] fetching user shielded addresses from Lace...');
+  const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = await wallet.getShieldedAddresses();
+  console.log('[deploy] got user cpk:', shieldedCoinPublicKey.slice(0, 20) + '...');
+
   onPhase?.('proving');
   console.log('[deploy] calling /api/deploy (server proves ~60s)...');
 
-  // Step 2: server builds + proves the deploy tx
+  // Step 3: server builds + proves the deploy tx using user's ZK keys
   const res = await fetch('/api/deploy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify({ ...params, userCoinPublicKey: shieldedCoinPublicKey, userEncryptionPublicKey: shieldedEncryptionPublicKey }),
   });
   if (!res.ok) {
     const text = await res.text();
