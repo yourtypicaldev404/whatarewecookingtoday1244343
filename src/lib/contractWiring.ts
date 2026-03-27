@@ -23,11 +23,15 @@ function txIdFromBalancedHex(balancedTxHex: string): string {
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
   wallet: ConnectedAPI,
+  onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
   // Step 1: warm-start the deploy server (Railway sleeps on free tier)
   fetch('/api/health').catch(() => {});
 
-  // Step 2: server builds the unproven deploy tx (no proving, fast)
+  onPhase?.('proving');
+  console.log('[deploy] calling /api/deploy (server proves ~60s)...');
+
+  // Step 2: server builds + proves the deploy tx
   const res = await fetch('/api/deploy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -43,20 +47,26 @@ export async function deployBondingCurveViaWallet(
     unprovenTxHex: string;
     contractAddress: string;
   };
+  console.log('[deploy] server returned provedTx, contractAddress:', contractAddress);
 
-  // Step 2: Lace proves + balances (pops up for user to approve)
+  // Step 3: Lace balances (adds DUST fee inputs) + shows popup to sign
+  onPhase?.('signing');
+  console.log('[deploy] calling balanceUnsealedTransaction — Lace popup should appear...');
   const balanced = await wallet.balanceUnsealedTransaction(unprovenTxHex);
+  console.log('[deploy] balanceUnsealedTransaction returned, deriving txId...');
 
-  // Step 3: derive tx id, then fire-and-forget submit.
-  // submitTransaction can hang indefinitely waiting for node ACK — we already have
-  // the contractAddress and txId so we don't need to block on it.
+  // Step 4: derive tx id
   let txId: string;
   try {
     txId = txIdFromBalancedHex(balanced.tx);
   } catch {
     txId = `pending-${Date.now()}`;
   }
-  wallet.submitTransaction(balanced.tx).catch(e => console.error('submitTransaction error:', e));
+
+  // Step 5: fire-and-forget submit — submitTransaction can hang waiting for node ACK
+  onPhase?.('submitting');
+  console.log('[deploy] submitting tx (fire-and-forget), txId:', txId);
+  wallet.submitTransaction(balanced.tx).catch(e => console.error('[deploy] submitTransaction error:', e));
 
   return { contractAddress, txId };
 }

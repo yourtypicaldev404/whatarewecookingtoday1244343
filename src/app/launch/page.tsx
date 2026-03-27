@@ -9,7 +9,7 @@ export default function LaunchPage() {
   const { api, connected } = useWallet();
   const [step, setStep] = useState(0);
   const [deployBusy, setDeployBusy] = useState(false);
-  const [deployPhase, setDeployPhase] = useState<'proving' | 'saving'>('proving');
+  const [deployPhase, setDeployPhase] = useState<'proving' | 'signing' | 'submitting' | 'saving'>('proving');
   const [deployError, setDeployError] = useState<string | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
   const [form, setForm] = useState({ name:'', ticker:'', description:'', website:'', twitter:'', telegram:'', discord:'', initialBuy:'0' });
@@ -34,7 +34,7 @@ export default function LaunchPage() {
         ticker: form.ticker,
         description: form.description,
         imageUri: 'ipfs://',
-      }, api);
+      }, api, setDeployPhase);
       setDeployPhase('saving');
       await fetch('/api/tokens', {
         method: 'POST',
@@ -65,12 +65,21 @@ export default function LaunchPage() {
       <ZkWorkOverlay
         open={deployBusy}
         error={deployError}
-        variant={deployPhase === 'saving' ? 'saving' : 'proving'}
-        title={deployPhase === 'saving' ? 'Finishing up…' : 'Creating ZK proof…'}
+        variant={deployPhase === 'saving' || deployPhase === 'submitting' ? 'saving' : 'proving'}
+        title={
+          deployPhase === 'saving' ? 'Finishing up…' :
+          deployPhase === 'submitting' ? 'Submitting to chain…' :
+          deployPhase === 'signing' ? 'Sign in Lace wallet…' :
+          'Creating ZK proof…'
+        }
         subtitle={
           deployPhase === 'saving'
             ? 'Registering your token in the night.fun directory.'
-            : 'The deploy server is generating proofs and submitting your contract. This usually takes 30–90 seconds — hang tight.'
+            : deployPhase === 'submitting'
+            ? 'Transaction signed. Broadcasting to the Midnight network.'
+            : deployPhase === 'signing'
+            ? 'Check your Lace wallet — approve the transaction to deploy your token.'
+            : 'The deploy server is generating a ZK proof for your contract. This takes 30–90 seconds.'
         }
         onDismiss={deployError ? dismissDeployOverlay : undefined}
       />
