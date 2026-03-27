@@ -1,9 +1,9 @@
 # 🌙 night.fun
 
 **pump.fun for Midnight Network.**
-Users launch memecoins with real Zero Knowledge smart contracts. Each token has a bonding curve — price goes up as people buy. When the curve fills, the token graduates to NorthStar DEX.
+Users launch memecoins backed by real Zero Knowledge smart contracts. Each token has a bonding curve — price rises as people buy. When the curve fills (69,000 DUST), the token graduates to NorthStar DEX.
 
-Privacy-first: trades are ZK-verified, nobody sees your wallet balance or transaction history.
+Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transaction history.
 
 **Live: https://nightdotfun.vercel.app/**
 
@@ -25,151 +25,126 @@ Privacy-first: trades are ZK-verified, nobody sees your wallet balance or transa
 
 ---
 
+## Status
+
+### Done ✅
+
+| Feature | Notes |
+|---------|-------|
+| Homepage | Token grid, King of the Hill, search, sort (bump / new / mcap / graduated) |
+| Token page | Bonding curve progress bar, buy/sell UI, price chart (mock data) |
+| 4-step launch wizard | Name → ticker → description → image → deploy |
+| ZK contract compilation | Compact → WASM/zkir, circuits: `buy`, `sell`, `getProgress`, `pause`, `unpause` |
+| Token registry | Upstash Redis — persists address, reserves, volume, holder counts |
+| IPFS image upload | Upload via Pinata on launch, stored as `imageUri` in Redis |
+| Social links | Twitter, Telegram, website, Discord on token page |
+| Wallet connect | Lace DApp Connector, connect/disconnect in Navbar |
+| Lace install redirect | Browser-aware link to Chrome Web Store / Firefox / Edge |
+| Deploy server | Railway, Express, v13 — always on |
+| Portfolio page | `/portfolio` — positions, P&L, created tokens, tx history **(mock data)** |
+| ZK work overlay | Phase-aware progress UI during deploy and trades |
+| Deploy (server-side) | Railway warm-wallet deploys the contract fully server-side (no Lace popup needed) |
+
+### Partially Working / Blocked ⚠️
+
+#### Token Creation
+The deploy flow is architecturally complete:
+1. User fills form → `POST /api/deploy` → Railway
+2. Railway `WalletFacade` (warm wallet, synced at startup) calls `deployContract()` — proves + balances + submits using the server's own DUST wallet
+3. Returns `{contractAddress, txId}` → saved to Redis → redirect to token page
+
+**Blocked by**: Midnight Preview network instability. When Preview is down, `buildWallet` / `WalletFacade.init()` can't sync and the deploy times out. When Preview is up, this flow should complete end-to-end without requiring the user to sign (the server wallet signs).
+
+> **Note on signing**: The current server-side deploy means *the server's wallet* signs the deploy transaction, not the user's Lace wallet. This was a deliberate workaround because `wallet.balanceUnsealedTransaction()` in Lace consistently hangs after the user approves — the promise never resolves. A user-signed deploy would be preferable UX, but requires Lace to fix the `balanceUnsealedTransaction` hang.
+
+#### Buy / Sell
+Server side (Railway `createUnprovenCallTx` + `proofProvider.proveTx`) works and returns a proved tx hex. The broken step is Lace:
+
+```
+buildTradeProvenTx()   ✅ server builds + proves tx in ~30s
+balanceUnsealedTransaction(provedTxHex)  ❌ Lace popup appears, user signs → promise never resolves
+submitTransaction()    ❌ never reached
+```
+
+The hang happens regardless of whether the tx was built with the user's or server's `coinPublicKey`. Root cause is likely in the Lace DApp Connector or a version mismatch with the Midnight SDK. When this resolves, trades will work end-to-end — no code changes needed on the server.
+
+**Common errors seen in buy/sell:**
+- `Unable to deserialize Transaction` — tx format mismatch (fixed: server now proves before returning)
+- `No public state found at contract address` — indexer hasn't indexed the contract yet, or Preview was reset after deploy (redeploy the token)
+- Hanging after Lace popup — `balanceUnsealedTransaction` promise never resolves
+- 502/503/504 — Railway deploy server cold start or proof server unavailable
+
+### Not Started ❌
+
+| Feature | What's needed |
+|---------|--------------|
+| Real portfolio | Query Midnight indexer for the connected wallet's ZK token balances — no public API for this yet |
+| Real price chart | Subscribe to indexer WebSocket for per-contract trade events, store OHLCV in Redis |
+| Token images on homepage cards | Load `imageUri` from Redis and display instead of the moon emoji placeholder |
+| Graduation flow | When `adaReserve >= 69,000 DUST`, call contract's `graduate()` circuit and list on NorthStar DEX |
+| Real holder tracking | Parse ZK outputs from indexer to count unique holders per token |
+| User-signed deploys | Need Lace to fix `balanceUnsealedTransaction` or switch to a different Lace API |
+| Comment / bump system | Social layer — users bump tokens to the top by posting |
+| Token gating | Launch with a whitelist, vesting schedule, or creator fee |
+
+---
+
 ## Architecture
 
-```
-User → nightdotfun.vercel.app (Next.js)
-↓
-/api/deploy → Railway deploy server
-↓
-Midnight SDK → ZK Proof → Midnight (`NEXT_PUBLIC_NETWORK_ID`, see `src/lib/network.ts`)
-↓
-Contract address saved to Upstash KV
-↓
-Token page live at /token/[address]
-```
-
----
-
-## Working ✅
-
-- [x] Homepage with King of the Hill, token grid, search/sort
-- [x] 4-step token launch wizard
-- [x] Token page with bonding curve progress, buy/sell UI, price chart
-- [x] Real ZK contract deploy — every token launch deploys a real Midnight contract
-- [x] **Real buy/sell** — server builds unproven tx, Lace wallet proves via its configured proof server + balances fees + submits
-- [x] Wallet connect via Lace (network from env; default Preview in `src/lib/network.ts`)
-- [x] Browser-aware Lace install redirect (Chrome Web Store / Firefox Add-ons / Edge Add-ons)
-- [x] Token registry persists to Upstash Redis (PATCH route updates reserves after trades)
-- [x] Token images upload to IPFS via Pinata
-- [x] Social links (Twitter, Telegram, website, Discord)
-- [x] Deploy server running 24/7 on Railway
-- [x] Live at nightdotfun.vercel.app
-
----
-
-## Trade Architecture
-
-Trades do **not** use a server-side proof server. The Railway server only builds the unproven transaction:
+### Deploy Flow (current)
 
 ```
-Browser (Lace connected)
-  ↓ POST /api/trade (Next.js proxy)
-  ↓ POST /trade/build (Railway deploy server)
+User fills launch form
+  ↓ POST /api/deploy (Vercel Next.js proxy, timeout 300s)
+  ↓ POST /deploy (Railway deploy server)
+      → ensureWalletReady()  — WalletFacade synced at startup, reused
+      → deployContract()     — prove + balance + submit (server wallet signs)
+      → returns { contractAddress, txId }
+  ↓ Vercel proxy returns { contractAddress, txId }
+  ↓ PATCH /api/tokens/[address] — save to Upstash Redis
+  ↓ redirect /token/[contractAddress]
+```
+
+### Trade Flow (current, partially working)
+
+```
+User clicks Buy / Sell
+  ↓ POST /api/trade (Vercel proxy, timeout 240s)
+  ↓ POST /trade/build (Railway)
       → createUnprovenCallTx(contractAddress, buy|sell, args)
-      → returns unprovenTxHex
-  ↓ api.balanceUnsealedTransaction(unprovenTxHex)
-      Lace internally: ZK-proves using its configured proof server
-                       + balances fees from user's DUST
-  ↓ api.submitTransaction(balanced.tx)
-      → confirmed on Midnight
-  ↓ PATCH /api/tokens/[address] — update reserves in Redis
-```
-
-This means the proof server the user has configured in Lace (Settings → Midnight → Prover server) is the one used for trade proofs. Railway only needs a proof server for **deploys**.
-
----
-
-## TODO ⬜
-
-### High Priority
-
-- [ ] **Real price chart** — currently mock data. Subscribe to Midnight indexer WebSocket for real trade history per contract address.
-- [ ] **Token images on homepage cards** — uploaded images go to IPFS but homepage cards show moon emoji. Need to load from `imageUri` field.
-
-### Medium Priority
-
-- [ ] **Portfolio page** — show user's token holdings, P&L, transaction history
-- [ ] **Graduation flow** — when bonding curve hits 69,000 DUST target, auto-list on NorthStar DEX
-- [ ] **Real token balances** — track holder counts and balances from indexer
-
-### Mainnet (or any network) switch
-
-All UI and `wallet.connect()` use **`src/lib/network.ts`** (reads `NEXT_PUBLIC_NETWORK_ID` and optional `NEXT_PUBLIC_NETWORK_LABEL`). Set indexer/RPC/proof URLs in `.env` to match that network, then redeploy.
-
-```bash
-# Example — mainnet (URLs must match Midnight docs for your release)
-vercel env add NEXT_PUBLIC_NETWORK_ID mainnet
-vercel env add NEXT_PUBLIC_FAUCET_URL ""
-vercel env add NEXT_PUBLIC_INDEXER_HTTP …
-vercel env add NEXT_PUBLIC_INDEXER_WS …
-vercel --prod
+      → proofProvider.proveTx(unprovenTx)    ← server-side ZK proof (~30s)
+      → returns provedTxHex
+  ↓ wallet.balanceUnsealedTransaction(provedTxHex)   ← HANGS in Lace
+      Lace should: add DUST fee inputs + show popup + return balanced tx
+  ↓ wallet.submitTransaction(balanced.tx)            ← never reached
+  ↓ PATCH /api/tokens/[address] — update reserves    ← never reached
 ```
 
 ---
 
-## Install & Run
+## Local Development
 
 ```bash
 npm install
+cp .env.local.example .env.local   # fill in your keys
 ```
 
-**Local site + local proof** (single command after `.env.local` exists):
-
+**All-in-one (recommended):**
 ```bash
-test -f .env.local || cp .env.local.example .env.local
 npm run dev:local
+# Starts: docker compose (proof server :6300) + deploy server (:3001) + Next (:3000)
 ```
 
-This runs `docker compose up -d`, then **deploy-server** + **Next dev** together. Open `http://localhost:3000`. In **Lace** → Midnight → Prover server → `http://localhost:6300`.
-
-**Manual / three terminals** (same result):
-
+**Manual (3 terminals):**
 ```bash
-cp .env.local.example .env.local   # once
-docker compose up -d                 # proof on :6300
-npm run deploy-server              # reads .env.local; port 3001
-npm run dev                        # Next on :3000
+docker compose up -d        # proof server on :6300
+npm run deploy-server       # Railway server on :3001
+npm run dev                 # Next.js on :3000
 ```
 
-Production (Vercel + Railway) env vars: see **`DEPLOYMENT.md`**.
+Configure Lace → Midnight → Prover server → `http://localhost:6300`
 
-Run frontend only (e.g. production deploy URL already in env):
-
-```bash
-npm run dev
-```
-
-Run **proof server** (ZK — required for **deploys**; trades use Lace's configured proof server). Prefer co-locating with the deploy server:
-
-```bash
-docker compose up -d
-```
-
-Then run the deploy server (uses `PROOF_SERVER_URL` from `.env.local` if present):
-
-```bash
-npm run deploy-server
-```
-
-**All-in-one Docker** (proof + deploy on the same compose network; deploy uses `http://proof-server:6300`):
-
-```bash
-docker compose --profile full up -d --build
-# health: curl http://localhost:3001/health
-```
-
-One-off proof container (same image as compose):
-
-```bash
-npm run start-proof-server
-```
-
-Configure **Lace** → Midnight → Prover server → `http://localhost:6300` when using local proof.
-
-**Railway (co-located proof):** add a second Railway service using Docker image `midnightntwrk/proof-server:8.0.3` (port 6300). Set the deploy service `PROOF_SERVER_URL` to that service’s **private** URL (e.g. `http://<proof-service>.railway.internal:6300` or the generated internal hostname). Use the hosted Preview proof URL instead if you do not run your own prover.
-
-Compile contracts:
+**Compile contracts:**
 ```bash
 npm run compile-contracts
 ```
@@ -178,40 +153,49 @@ npm run compile-contracts
 
 ## Environment Variables
 
+### Vercel (frontend)
+
 ```bash
-# Upstash Redis
-KV_REST_API_URL=
+NEXT_PUBLIC_NETWORK_ID=preview          # preview | preprod | mainnet
+NEXT_PUBLIC_NETWORK_LABEL=Preview       # display label
+NEXT_PUBLIC_FAUCET_URL=https://...      # optional faucet link
+NEXT_PUBLIC_INDEXER_HTTP=https://...
+NEXT_PUBLIC_INDEXER_WS=wss://...
+NEXT_PUBLIC_MIDNIGHT_NODE_URL=https://...
+DEPLOY_SERVER_URL=https://....railway.app
+KV_REST_API_URL=                        # Upstash Redis
 KV_REST_API_TOKEN=
+PINATA_JWT=                             # IPFS image uploads
+```
 
-# Pinata IPFS
-PINATA_JWT=
+### Railway (deploy server)
 
-# Deploy Server
-DEPLOY_SERVER_URL=https://whatarewecookingtoday1244343-production.up.railway.app/
-NEXT_PUBLIC_DEPLOY_SERVER_URL=https://whatarewecookingtoday1244343-production.up.railway.app/
-
-# Network (preview | preprod | mainnet — see .env.example)
-NEXT_PUBLIC_NETWORK_ID=preview
+```bash
+NETWORK_ID=preview
+DEPLOYER_SEED=<64-char hex>             # server wallet seed (needs testnet DUST)
+TREASURY_SEED=<64-char hex>             # treasury witness key
+PROOF_SERVER_URL=https://lace-proof-pub.preview.midnight.network   # or self-hosted
+INDEXER_HTTP=https://indexer.preview.midnight.network/api/v4/graphql
+INDEXER_WS=wss://indexer.preview.midnight.network/api/v4/graphql/ws
+NODE_RPC=https://rpc.preview.midnight.network
+PORT=3001
 ```
 
 ---
 
 ## Contract Info
 
-**Bonding Curve Contract**
+**Bonding Curve Contract** (`contracts/managed/bonding_curve/`)
 - Language: Compact 0.30.0 (pragma 0.22)
-- Runtime: compact-runtime 0.15.0
 - Circuits: `buy`, `sell`, `getProgress`, `pause`, `unpause`
 - Graduation target: 69,000 DUST
+- Total supply: 1,000,000,000 tokens (6 decimals)
+- Fee: 1% per trade
 - Witnesses: `treasurySecretKey`
-
-**Working deploy seed (testnet example)**
-- Address: `mn_addr_preprod1zecl9jk3e2k7dghga8wqja6y5nanx6f4cew26naanwveulawwnpsv67ffc`
-- Stored in `deployment.json`
 
 ---
 
-## Working Versions
+## SDK Versions (working)
 
 ```json
 {
@@ -220,6 +204,7 @@ NEXT_PUBLIC_NETWORK_ID=preview
   "@midnight-ntwrk/midnight-js-contracts": "4.0.1",
   "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.1",
   "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.1",
+  "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.1",
   "@midnight-ntwrk/wallet-sdk-facade": "3.0.0",
   "@midnight-ntwrk/wallet-sdk-shielded": "2.1.0",
   "@midnight-ntwrk/wallet-sdk-hd": "3.0.1",
@@ -228,3 +213,15 @@ NEXT_PUBLIC_NETWORK_ID=preview
   "@midnight-ntwrk/ledger-v8": "8.0.3"
 }
 ```
+
+---
+
+## Known Issues
+
+| Issue | Cause | Workaround |
+|-------|-------|------------|
+| Deploy times out / fails | Midnight Preview chain down — WalletFacade can't sync | Wait for chain to come back up |
+| Buy/sell hangs after Lace popup | `balanceUnsealedTransaction` in Lace DApp Connector never resolves | No workaround yet — Lace bug |
+| `No public state found` on trade | Token deployed on a different chain epoch / Preview was reset | Redeploy the token |
+| Portfolio shows mock data | No indexer API for user ZK balances yet | Real data needs Midnight indexer extension |
+| Token images show moon emoji | `imageUri` stored but not rendered in cards | Load IPFS URL in `TokenCard` component |
