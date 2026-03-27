@@ -196,37 +196,36 @@ async function getProvedTradeTx(
 // ── Deploy ──────────────────────────────────────────────────────────────────
 
 /**
- * Deploy a bonding curve token with user authorization via Lace signData.
+ * Deploy a bonding curve token via Lace.
  *
- * Lace's balanceUnsealedTransaction hangs after the user signs (known DApp Connector bug).
- * Instead, we use signData (pure crypto — no indexer, no balancing) so the user still
- * sees a Lace popup and approves. The server's warm wallet then deploys the contract
- * on the user's behalf. The user's verifyingKey is recorded as the token creator.
+ * Lace's balanceUnsealedTransaction hangs (DApp Connector bug) and signData is
+ * "not implemented" in the current Lace version. So we use a pragmatic approach:
  *
- * Flow:
- * 1. User signs "Deploy $TICKER on night.fun" via Lace signData → popup → approve
- * 2. Server receives signature + verifyingKey as authorization
- * 3. Server deploys using its own funded wallet (prove + balance + submit)
- * 4. Returns { contractAddress, txId }
+ * 1. The user is already authenticated by being connected to Lace (wallet connect).
+ *    We grab their unshielded address as the creator identity.
+ * 2. Server deploys using its own warm wallet (prove + balance + submit).
+ * 3. The user's address is stored as the token creator in the DB.
+ *
+ * When Lace fixes balanceUnsealedTransaction or implements signData, we can add
+ * a proper on-chain signature step. For now, wallet-connect = authorization.
  */
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
   wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Step 1: Ask the user to sign a deploy authorization message via Lace.
-  // signData uses pure crypto (no indexer/network needed) — works reliably.
+  // Step 1: Get the connected user's address as creator identity.
   onPhase?.('signing');
-  const deployMessage = `Deploy $${params.ticker} on night.fun\nName: ${params.name}\nTimestamp: ${Date.now()}`;
-  console.log('[deploy] requesting Lace signData...');
-  const sig = await withTimeout(
-    wallet.signData(deployMessage, { encoding: 'text', keyType: 'unshielded' }),
-    60_000,
-    'Lace did not respond to signData after 60 seconds. Make sure Lace is unlocked.',
-  );
-  console.log('[deploy] Lace signed ✓ verifyingKey:', sig.verifyingKey.slice(0, 20) + '...');
+  let creatorAddr = 'unknown';
+  try {
+    const addrResult = await withTimeout(wallet.getUnshieldedAddress(), 5_000, 'getUnshieldedAddress timeout');
+    creatorAddr = typeof addrResult === 'string' ? addrResult : (addrResult as any).unshieldedAddress ?? 'unknown';
+    console.log('[deploy] creator:', creatorAddr.slice(0, 20) + '...');
+  } catch (e) {
+    console.warn('[deploy] Could not get creator address:', e);
+  }
 
-  // Step 2: Server deploys using its own wallet, authorized by the user's signature.
+  // Step 2: Server deploys using its own warm wallet.
   onPhase?.('proving');
   console.log('[deploy] POST /api/deploy/signed — server deploying (~30–90s)...');
   const res = await fetch('/api/deploy/signed', {
@@ -235,8 +234,8 @@ export async function deployBondingCurveViaWallet(
     body: JSON.stringify({
       name: params.name,
       ticker: params.ticker,
-      signature: sig.signature,
-      verifyingKey: sig.verifyingKey,
+      signature: 'wallet-connected',
+      verifyingKey: creatorAddr,
     }),
   });
   if (!res.ok) {

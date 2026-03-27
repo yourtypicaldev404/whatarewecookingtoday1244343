@@ -65,11 +65,11 @@ export default function LaunchPage() {
       <ZkWorkOverlay
         open={deployBusy}
         error={deployError}
-        variant={deployPhase === 'saving' || deployPhase === 'submitting' ? 'saving' : deployPhase === 'signing' ? 'proving' : 'proving'}
+        variant={deployPhase === 'saving' || deployPhase === 'submitting' ? 'saving' : 'proving'}
         title={
-          deployPhase === 'saving'     ? 'Finishing up…'          :
-          deployPhase === 'submitting' ? 'Almost done…'           :
-          deployPhase === 'signing'    ? 'Authorize in Lace…'     :
+          deployPhase === 'saving'     ? 'Finishing up…'                :
+          deployPhase === 'submitting' ? 'Almost done…'                 :
+          deployPhase === 'signing'    ? 'Preparing deploy…'            :
           'Deploying your token…'
         }
         subtitle={
@@ -78,8 +78,8 @@ export default function LaunchPage() {
             : deployPhase === 'submitting'
             ? 'Your contract is live on Midnight. Saving token info.'
             : deployPhase === 'signing'
-            ? 'Check your Lace wallet — approve the deploy request to authorize token creation.'
-            : 'The server is deploying your bonding curve contract. This takes 30–90 seconds.'
+            ? 'Reading your wallet identity. This is quick.'
+            : 'The server is deploying your bonding curve contract to Midnight. This takes 30–90 seconds.'
         }
         onDismiss={deployError ? dismissDeployOverlay : undefined}
       />
