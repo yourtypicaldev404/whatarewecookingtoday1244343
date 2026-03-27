@@ -196,79 +196,63 @@ async function getProvedTradeTx(
 // ── Deploy ──────────────────────────────────────────────────────────────────
 
 /**
- * Deploy a bonding curve token with user signing via Lace.
+ * Deploy a bonding curve token with user authorization via Lace signData.
  *
- * Two proving paths (auto-detected):
- * A) Lace has getProvingProvider → client-side prove (format-compatible)
- * B) Lace lacks it → server proves via /api/deploy (original flow)
+ * Lace's balanceUnsealedTransaction hangs after the user signs (known DApp Connector bug).
+ * Instead, we use signData (pure crypto — no indexer, no balancing) so the user still
+ * sees a Lace popup and approves. The server's warm wallet then deploys the contract
+ * on the user's behalf. The user's verifyingKey is recorded as the token creator.
  *
- * Both paths end with: balanceUnsealedTransaction → Lace popup → submitTransaction.
+ * Flow:
+ * 1. User signs "Deploy $TICKER on night.fun" via Lace signData → popup → approve
+ * 2. Server receives signature + verifyingKey as authorization
+ * 3. Server deploys using its own funded wallet (prove + balance + submit)
+ * 4. Returns { contractAddress, txId }
  */
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
   wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Step 1: Check Lace's configured indexer is reachable.
-  let walletConfig: Awaited<ReturnType<typeof wallet.getConfiguration>>;
-  try {
-    walletConfig = await withTimeout(wallet.getConfiguration(), 5_000, 'getConfiguration timeout');
-    console.log('[deploy] Lace config — network:', walletConfig.networkId, '| indexer:', walletConfig.indexerUri);
-  } catch (e) {
-    console.warn('[deploy] Could not read Lace configuration:', e);
-    walletConfig = null as any;
-  }
-  if (walletConfig) {
-    try {
-      await withTimeout(
-        fetch(walletConfig.indexerUri, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: '{ __typename }' }),
-        }),
-        6_000,
-        'indexer probe timeout',
-      );
-      console.log('[deploy] indexer reachable ✓');
-    } catch {
-      throw new Error(
-        `The Midnight ${walletConfig.networkId} indexer is unreachable right now ` +
-        `(${walletConfig.indexerUri}). ` +
-        `The Preview network may be temporarily down. Please try again in a few minutes.`,
-      );
-    }
-  }
-
-  // Step 2: Get user's ZK public keys so the server builds tx outputs to their address.
-  console.log('[deploy] fetching user shielded addresses...');
-  const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = await wallet.getShieldedAddresses();
-  console.log('[deploy] userCpk:', shieldedCoinPublicKey.slice(0, 20) + '...');
-
-  // Step 3: Prove (client-side via Lace if available, otherwise server-side).
-  onPhase?.('proving');
-  const { provedTxHex, contractAddress } = await getProvedDeployTx(
-    wallet, params, shieldedCoinPublicKey, shieldedEncryptionPublicKey,
-  );
-
-  // Step 4: Lace adds DUST fee inputs, shows popup, user signs.
+  // Step 1: Ask the user to sign a deploy authorization message via Lace.
+  // signData uses pure crypto (no indexer/network needed) — works reliably.
   onPhase?.('signing');
-  console.log('[deploy] calling balanceUnsealedTransaction — Lace popup should appear...');
-  const balanced = await withTimeout(
-    wallet.balanceUnsealedTransaction(provedTxHex),
-    120_000,
-    'Lace wallet did not respond after 120 seconds. ' +
-    'This usually means the Midnight network is unreachable or Lace lost its connection to the indexer. ' +
-    'Check that Lace is connected to Preview and try again.',
+  const deployMessage = `Deploy $${params.ticker} on night.fun\nName: ${params.name}\nTimestamp: ${Date.now()}`;
+  console.log('[deploy] requesting Lace signData...');
+  const sig = await withTimeout(
+    wallet.signData(deployMessage, { encoding: 'text', keyType: 'unshielded' }),
+    60_000,
+    'Lace did not respond to signData after 60 seconds. Make sure Lace is unlocked.',
   );
-  console.log('[deploy] Lace signed ✓');
+  console.log('[deploy] Lace signed ✓ verifyingKey:', sig.verifyingKey.slice(0, 20) + '...');
 
-  let txId: string;
-  try { txId = txIdFromBalancedHex(balanced.tx); } catch { txId = `pending-${Date.now()}`; }
+  // Step 2: Server deploys using its own wallet, authorized by the user's signature.
+  onPhase?.('proving');
+  console.log('[deploy] POST /api/deploy/signed — server deploying (~30–90s)...');
+  const res = await fetch('/api/deploy/signed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: params.name,
+      ticker: params.ticker,
+      signature: sig.signature,
+      verifyingKey: sig.verifyingKey,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
+    throw new Error(msg);
+  }
 
-  // Step 5: Fire-and-forget submit — submitTransaction can block waiting for node ACK.
+  const { contractAddress, txId } = await res.json() as {
+    contractAddress: string;
+    txId: string;
+  };
+  console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
+
   onPhase?.('submitting');
-  wallet.submitTransaction(balanced.tx).catch(e => console.error('[deploy] submit error:', e));
-
   return { contractAddress, txId };
 }
 

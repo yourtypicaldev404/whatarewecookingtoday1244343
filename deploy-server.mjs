@@ -170,6 +170,29 @@ function deriveShieldedKeysFromSeed(seed) {
 }
 const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
 
+// Warm wallet — synced once at startup, reused per deploy so we skip re-sync wait.
+let _walletReady = false;
+let _walletPromise = null;
+let _walletInstance = null;
+
+function ensureWalletReady() {
+  if (_walletReady) return Promise.resolve(_walletInstance);
+  if (!_walletPromise) {
+    _walletPromise = buildWallet(SEED).then(result => {
+      _walletInstance = result;
+      _walletReady = true;
+      console.log('[warm-wallet] ready');
+      return result;
+    }).catch(err => {
+      _walletPromise = null;
+      console.error('[warm-wallet] init failed:', err.message);
+      throw err;
+    });
+  }
+  return _walletPromise;
+}
+// Start warming immediately — non-blocking, errors logged.
+ensureWalletReady().catch(err => console.error('[warm-wallet] startup error:', err.message));
 
 function deriveKeys(seed) {
   const hd = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
@@ -419,6 +442,87 @@ app.post('/deploy/unproven', async (req, res) => {
     res.json({ unprovenTxHex, contractAddress });
   } catch (err) {
     console.error('[deploy/unproven] Failed:', err.message, '\n', err.stack);
+    res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
+  }
+});
+
+/**
+ * Server-side deploy authorized by the user's Lace signData signature.
+ *
+ * Uses the server's warm wallet to prove + balance + submit (bypasses the broken
+ * Lace balanceUnsealedTransaction). The user's Lace signature + verifyingKey are
+ * stored as proof of authorization, and the verifyingKey is recorded as the creator.
+ *
+ * Returns { contractAddress, txId, creatorKey }.
+ */
+app.post('/deploy/signed', async (req, res) => {
+  const { name, ticker, signature, verifyingKey } = req.body;
+  console.log('[deploy/signed] Server-side deploy for:', name, ticker,
+    '| creator:', verifyingKey ? verifyingKey.slice(0, 20) + '...' : 'anonymous');
+
+  if (!name || !ticker) {
+    return res.status(400).json({ error: 'Missing name or ticker' });
+  }
+  if (!signature || !verifyingKey) {
+    return res.status(400).json({ error: 'Missing Lace signature — user must sign the deploy request' });
+  }
+
+  try {
+    const { wallet, shieldedSK, dustSK } = await ensureWalletReady();
+
+    const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
+    const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
+
+    const state = await Rx.firstValueFrom(wallet.state().pipe(Rx.filter(s => s.isSynced)));
+
+    const walletProvider = {
+      getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),
+      getEncryptionPublicKey: () => state.shielded.encryptionPublicKey.toHexString(),
+      async balanceTx(tx, ttl) {
+        const recipe = await wallet.balanceUnboundTransaction(
+          tx,
+          { shieldedSecretKeys: shieldedSK, dustSecretKey: dustSK },
+          { ttl: ttl ?? new Date(Date.now() + 30 * 60 * 1000) },
+        );
+        return wallet.finalizeRecipe(recipe);
+      },
+      submitTx: (tx) => wallet.submitTransaction(tx),
+    };
+
+    const zkConfig = new NodeZkConfigProvider(ZK_PATH);
+    const providers = {
+      privateStateProvider: levelPrivateStateProvider({
+        privateStateStoreName: 'night-fun-deploy-' + Date.now(),
+        privateStoragePasswordProvider: () => 'night-fun-secret-2026',
+        accountId: 'deployer-' + Date.now(),
+      }),
+      publicDataProvider: indexerPublicDataProvider(INDEXER, INDEXERWS),
+      zkConfigProvider:   zkConfig,
+      proofProvider:      httpClientProofProvider(PROOF, zkConfig),
+      walletProvider,
+      midnightProvider:   walletProvider,
+    };
+
+    const witnesses = { treasurySecretKey: () => treasurySk };
+    const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
+      CompiledContract.withWitnesses(witnesses),
+      CompiledContract.withCompiledFileAssets(ZK_PATH),
+    );
+
+    console.log('[deploy/signed] deployContract (prove + balance + submit)...');
+    const deployed = await deployContract(providers, {
+      compiledContract,
+      privateStateId:      'bondingCurve-' + Date.now(),
+      initialPrivateState: {},
+      args: [creatorSk, treasurySk],
+    });
+
+    const contractAddress = deployed.deployTxData.public.contractAddress;
+    const txId            = deployed.deployTxData.public.txId;
+    console.log('[deploy/signed] deployed! contractAddress:', contractAddress, '| txId:', txId);
+    res.json({ contractAddress, txId, creatorKey: verifyingKey });
+  } catch (err) {
+    console.error('[deploy/signed] failed:', err.message, '\n', err.stack);
     res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
   }
 });
