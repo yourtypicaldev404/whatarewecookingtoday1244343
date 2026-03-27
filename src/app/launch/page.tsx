@@ -20,6 +20,10 @@ export default function LaunchPage() {
 
   const handleLaunch = async () => {
     if (deployBusy) return;
+    if (!connected || !api) {
+      setDeployError('Connect your Lace wallet first — your wallet signs the deploy transaction.');
+      return;
+    }
     setDeployError(null);
     setDeployPhase('proving');
     setDeployBusy(true);
@@ -30,7 +34,7 @@ export default function LaunchPage() {
         ticker: form.ticker,
         description: form.description,
         imageUri: 'ipfs://',
-      }, undefined, setDeployPhase);
+      }, api, setDeployPhase);
       setDeployPhase('saving');
       await fetch('/api/tokens', {
         method: 'POST',
@@ -63,16 +67,19 @@ export default function LaunchPage() {
         error={deployError}
         variant={deployPhase === 'saving' || deployPhase === 'submitting' ? 'saving' : 'proving'}
         title={
-          deployPhase === 'saving' ? 'Finishing up…' :
-          deployPhase === 'submitting' ? 'Submitting to chain…' :
+          deployPhase === 'saving'     ? 'Finishing up…'          :
+          deployPhase === 'submitting' ? 'Submitting to chain…'   :
+          deployPhase === 'signing'    ? 'Sign in Lace wallet…'   :
           'Creating ZK proof…'
         }
         subtitle={
           deployPhase === 'saving'
             ? 'Registering your token in the night.fun directory.'
             : deployPhase === 'submitting'
-            ? 'Proof complete. Broadcasting your contract to the Midnight network.'
-            : 'The deploy server is generating a ZK proof and submitting your contract. This takes 60–120 seconds.'
+            ? 'Transaction signed. Broadcasting to the Midnight network.'
+            : deployPhase === 'signing'
+            ? 'Check your Lace wallet — approve the transaction to deploy your token.'
+            : 'The deploy server is generating a ZK proof for your contract. This takes 30–90 seconds.'
         }
         onDismiss={deployError ? dismissDeployOverlay : undefined}
       />

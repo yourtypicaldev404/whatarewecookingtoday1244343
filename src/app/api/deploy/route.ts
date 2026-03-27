@@ -6,7 +6,7 @@ export const maxDuration = 300;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, ticker } = body;
+    const { name, ticker, userCoinPublicKey, userEncryptionPublicKey } = body;
 
     if (!name || !ticker) {
       return NextResponse.json({ error: 'Missing name or ticker' }, { status: 400 });
@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
     const deployRes = await fetch(`${deployServerUrl}/deploy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, ticker }),
-      signal: AbortSignal.timeout(300_000),
+      body: JSON.stringify({ name, ticker, userCoinPublicKey, userEncryptionPublicKey }),
+      signal: AbortSignal.timeout(240_000),
     });
 
     if (!deployRes.ok) {
@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
       throw new Error(errMsg);
     }
 
-    const { contractAddress, txId } = await deployRes.json();
-    return NextResponse.json({ contractAddress, txId });
+    const { provedTxHex, contractAddress } = await deployRes.json();
+    return NextResponse.json({ provedTxHex, contractAddress });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

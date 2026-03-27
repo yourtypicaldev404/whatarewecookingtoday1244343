@@ -20,23 +20,43 @@ function txIdFromBalancedHex(balancedTxHex: string): string {
   return ids[0] ?? tx.transactionHash();
 }
 
+/** Rejects after `ms` ms with a user-friendly message — wraps any promise. */
+function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+  ]);
+}
+
 /**
- * Deploy a bonding curve token fully server-side.
- * The deploy server (Railway) proves, balances, and submits using its own synced wallet.
- * No Lace popup required — the server handles everything.
+ * Deploy a bonding curve token with user signing via Lace.
+ *
+ * 1. Get user's ZK public keys from Lace
+ * 2. Server builds + ZK-proves the deploy tx (~30–60s)
+ * 3. Lace pops up → user approves → wallet adds fee inputs → returns balanced tx
+ * 4. Fire-and-forget submit (submitTransaction can be slow to ACK)
  */
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
-  _wallet?: ConnectedAPI,
+  wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  onPhase?.('proving');
-  console.log('[deploy] calling /api/deploy (server proves + submits, ~60–120s)...');
+  // Get user's ZK public keys so the server builds tx outputs to their address.
+  // Lace needs to recognise the outputs as its own in order to balance the tx.
+  console.log('[deploy] fetching user shielded addresses...');
+  const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = await wallet.getShieldedAddresses();
+  console.log('[deploy] userCpk:', shieldedCoinPublicKey.slice(0, 20) + '...');
 
+  onPhase?.('proving');
+  console.log('[deploy] POST /api/deploy — server proving (~30–60s)...');
   const res = await fetch('/api/deploy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
+    body: JSON.stringify({
+      ...params,
+      userCoinPublicKey: shieldedCoinPublicKey,
+      userEncryptionPublicKey: shieldedEncryptionPublicKey,
+    }),
   });
   if (!res.ok) {
     const text = await res.text();
@@ -44,12 +64,29 @@ export async function deployBondingCurveViaWallet(
     try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
     throw new Error(msg);
   }
-  const { contractAddress, txId } = await res.json() as {
+  const { provedTxHex, contractAddress } = await res.json() as {
+    provedTxHex: string;
     contractAddress: string;
-    txId: string;
   };
-  console.log('[deploy] server deployed! contractAddress:', contractAddress, '| txId:', txId);
+  console.log('[deploy] server proved tx, contractAddress:', contractAddress);
+
+  onPhase?.('signing');
+  console.log('[deploy] calling balanceUnsealedTransaction — Lace popup should appear...');
+  const balanced = await withTimeout(
+    wallet.balanceUnsealedTransaction(provedTxHex),
+    120_000,
+    'Lace wallet timed out waiting for approval (120s). ' +
+    'The Midnight Preview network may be temporarily unavailable — try again in a few minutes.',
+  );
+  console.log('[deploy] Lace signed, deriving txId...');
+
+  let txId: string;
+  try { txId = txIdFromBalancedHex(balanced.tx); } catch { txId = `pending-${Date.now()}`; }
+
   onPhase?.('submitting');
+  console.log('[deploy] submitting (fire-and-forget), txId:', txId);
+  wallet.submitTransaction(balanced.tx).catch(e => console.error('[deploy] submit error:', e));
+
   return { contractAddress, txId };
 }
 
