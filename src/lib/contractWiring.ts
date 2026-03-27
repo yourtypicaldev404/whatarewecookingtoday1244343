@@ -33,17 +33,19 @@ function withTimeout<T>(promise: Promise<T>, ms: number, msg: string): Promise<T
   ]);
 }
 
+/** Check whether the connected wallet exposes getProvingProvider (dapp-connector-api >=4.0). */
+function hasProvingProvider(wallet: ConnectedAPI): boolean {
+  return typeof (wallet as any).getProvingProvider === 'function';
+}
+
 /**
  * Build a KeyMaterialProvider adapter from FetchZkConfigProvider for Lace's getProvingProvider.
- * Lace expects { getZKIR, getProverKey, getVerifierKey } that return Uint8Array.
- * FetchZkConfigProvider wraps them in opaque types — we access the underlying bytes.
  */
 function buildKeyMaterialProvider(zkConfigUrl: string): KeyMaterialProvider {
   const zkConfig = new FetchZkConfigProvider(zkConfigUrl);
   return {
     async getZKIR(circuitKeyLocation: string): Promise<Uint8Array> {
       const zkir = await zkConfig.getZKIR(circuitKeyLocation);
-      // FetchZkConfigProvider wraps bytes in createZKIR — extract the raw Uint8Array
       return zkir instanceof Uint8Array ? zkir : new Uint8Array(zkir as ArrayBuffer);
     },
     async getProverKey(circuitKeyLocation: string): Promise<Uint8Array> {
@@ -60,24 +62,18 @@ function buildKeyMaterialProvider(zkConfigUrl: string): KeyMaterialProvider {
 /**
  * Prove an unproven transaction hex using Lace's getProvingProvider.
  * Returns the proved tx as hex, ready for balanceUnsealedTransaction.
- *
- * The key advantage: proving via Lace ensures the proof format is 100% compatible
- * with Lace's internal balancer, avoiding the hang caused by server-side proof format mismatch.
  */
 async function proveViaLace(
   wallet: ConnectedAPI,
   unprovenTxHex: string,
   zkConfigUrl: string,
 ): Promise<string> {
-  // Deserialize the unproven tx (Transaction<SignatureEnabled, PreProof, PreBinding>)
   const raw = hexToBytes(unprovenTxHex);
   const unprovenTx = ledger.Transaction.deserialize('signature', 'pre-proof', 'pre-binding', raw);
 
-  // Get Lace's proving provider
   const keyMaterial = buildKeyMaterialProvider(zkConfigUrl);
-  const provingProvider: ProvingProvider = await wallet.getProvingProvider(keyMaterial);
+  const provingProvider: ProvingProvider = await (wallet as any).getProvingProvider(keyMaterial);
 
-  // Prove using Lace — this calls provingProvider.prove() for each circuit
   const costModel = ledger.CostModel.initialCostModel();
   console.log('[prove] Proving tx via Lace getProvingProvider...');
   const provedTx = await unprovenTx.prove(provingProvider, costModel);
@@ -85,20 +81,128 @@ async function proveViaLace(
   return bytesToHex(provedTx.serialize());
 }
 
+/**
+ * Get a proved tx hex — tries Lace's getProvingProvider first (format-compatible),
+ * falls back to server-side proving via /api/deploy if Lace doesn't support it.
+ */
+async function getProvedDeployTx(
+  wallet: ConnectedAPI,
+  params: { name: string; ticker: string; description: string; imageUri: string },
+  shieldedCoinPublicKey: string,
+  shieldedEncryptionPublicKey: string,
+): Promise<{ provedTxHex: string; contractAddress: string }> {
+  const deployServerUrl = (process.env.NEXT_PUBLIC_DEPLOY_SERVER_URL ?? 'http://localhost:3001').replace(/\/$/, '');
+
+  if (hasProvingProvider(wallet)) {
+    // Path A: Client-side proving via Lace — format-compatible with balanceUnsealedTransaction.
+    console.log('[deploy] Lace has getProvingProvider — using client-side proving');
+    const res = await fetch('/api/deploy/unproven', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...params,
+        userCoinPublicKey: shieldedCoinPublicKey,
+        userEncryptionPublicKey: shieldedEncryptionPublicKey,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg = text;
+      try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
+      throw new Error(msg);
+    }
+    const { unprovenTxHex, contractAddress } = await res.json() as {
+      unprovenTxHex: string;
+      contractAddress: string;
+    };
+    console.log('[deploy] got unproven tx, contractAddress:', contractAddress);
+
+    const provedTxHex = await proveViaLace(wallet, unprovenTxHex, `${deployServerUrl}/zk-config`);
+    console.log('[deploy] proved via Lace ✓');
+    return { provedTxHex, contractAddress };
+  }
+
+  // Path B: Server-side proving — fallback when Lace doesn't have getProvingProvider.
+  console.log('[deploy] Lace lacks getProvingProvider — falling back to server-side proving');
+  const res = await fetch('/api/deploy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...params,
+      userCoinPublicKey: shieldedCoinPublicKey,
+      userEncryptionPublicKey: shieldedEncryptionPublicKey,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
+    throw new Error(msg);
+  }
+  const { provedTxHex, contractAddress } = await res.json() as {
+    provedTxHex: string;
+    contractAddress: string;
+  };
+  console.log('[deploy] server proved tx, contractAddress:', contractAddress);
+  return { provedTxHex, contractAddress };
+}
+
+/**
+ * Get a proved trade tx hex — tries Lace proving first, falls back to server-side.
+ */
+async function getProvedTradeTx(
+  wallet: ConnectedAPI,
+  params: TradeParams,
+): Promise<string> {
+  const deployServerUrl = (process.env.NEXT_PUBLIC_DEPLOY_SERVER_URL ?? 'http://localhost:3001').replace(/\/$/, '');
+
+  if (hasProvingProvider(wallet)) {
+    console.log('[trade] Lace has getProvingProvider — using client-side proving');
+    const res = await fetch('/api/trade/unproven', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      let msg: string;
+      try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch { msg = text; }
+      throw new Error(tradeBuildErrorMessage(res.status, msg));
+    }
+    const { unprovenTxHex } = await res.json() as { unprovenTxHex: string };
+    if (!unprovenTxHex) throw new Error('Trade build returned no unprovenTxHex');
+
+    return proveViaLace(wallet, unprovenTxHex, `${deployServerUrl}/zk-config`);
+  }
+
+  // Fallback: server-side proving
+  console.log('[trade] Lace lacks getProvingProvider — falling back to server-side proving');
+  const res = await fetch('/api/trade', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg: string;
+    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch { msg = text; }
+    throw new Error(tradeBuildErrorMessage(res.status, msg));
+  }
+  const body = (await res.json()) as { unprovenTxHex: string };
+  if (!body.unprovenTxHex) throw new Error('Trade build returned no unprovenTxHex');
+  return body.unprovenTxHex;
+}
+
 // ── Deploy ──────────────────────────────────────────────────────────────────
 
 /**
  * Deploy a bonding curve token with user signing via Lace.
  *
- * Flow:
- * 1. Get user's ZK public keys from Lace
- * 2. Server builds the UNPROVEN deploy tx (fast — no proving)
- * 3. Browser proves the tx via Lace's getProvingProvider (~30–60s)
- * 4. Browser calls balanceUnsealedTransaction → Lace popup → user signs
- * 5. Browser submits via Lace
+ * Two proving paths (auto-detected):
+ * A) Lace has getProvingProvider → client-side prove (format-compatible)
+ * B) Lace lacks it → server proves via /api/deploy (original flow)
  *
- * The key difference from the old flow: proving happens through Lace's own infrastructure,
- * ensuring the proved transaction is in the exact format Lace's balancer expects.
+ * Both paths end with: balanceUnsealedTransaction → Lace popup → submitTransaction.
  */
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
@@ -140,38 +244,13 @@ export async function deployBondingCurveViaWallet(
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = await wallet.getShieldedAddresses();
   console.log('[deploy] userCpk:', shieldedCoinPublicKey.slice(0, 20) + '...');
 
-  // Step 3: Server builds the UNPROVEN deploy tx (fast — just circuit construction, no ZK proving).
+  // Step 3: Prove (client-side via Lace if available, otherwise server-side).
   onPhase?.('proving');
-  console.log('[deploy] POST /api/deploy/unproven — server building unproven tx...');
-  const res = await fetch('/api/deploy/unproven', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...params,
-      userCoinPublicKey: shieldedCoinPublicKey,
-      userEncryptionPublicKey: shieldedEncryptionPublicKey,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    let msg = text;
-    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
-    throw new Error(msg);
-  }
-  const { unprovenTxHex, contractAddress } = await res.json() as {
-    unprovenTxHex: string;
-    contractAddress: string;
-  };
-  console.log('[deploy] got unproven tx, contractAddress:', contractAddress);
+  const { provedTxHex, contractAddress } = await getProvedDeployTx(
+    wallet, params, shieldedCoinPublicKey, shieldedEncryptionPublicKey,
+  );
 
-  // Step 4: Prove via Lace's own proving provider (~30–60s).
-  // This ensures the proof is in a format Lace's balancer can process.
-  const deployServerUrl = (process.env.NEXT_PUBLIC_DEPLOY_SERVER_URL ?? 'http://localhost:3001').replace(/\/$/, '');
-  console.log('[deploy] proving via Lace getProvingProvider...');
-  const provedTxHex = await proveViaLace(wallet, unprovenTxHex, `${deployServerUrl}/zk-config`);
-  console.log('[deploy] proved ✓ — calling balanceUnsealedTransaction...');
-
-  // Step 5: Lace adds DUST fee inputs, shows popup, user signs.
+  // Step 4: Lace adds DUST fee inputs, shows popup, user signs.
   onPhase?.('signing');
   console.log('[deploy] calling balanceUnsealedTransaction — Lace popup should appear...');
   const balanced = await withTimeout(
@@ -186,7 +265,7 @@ export async function deployBondingCurveViaWallet(
   let txId: string;
   try { txId = txIdFromBalancedHex(balanced.tx); } catch { txId = `pending-${Date.now()}`; }
 
-  // Step 6: Fire-and-forget submit — submitTransaction can block waiting for node ACK.
+  // Step 5: Fire-and-forget submit — submitTransaction can block waiting for node ACK.
   onPhase?.('submitting');
   wallet.submitTransaction(balanced.tx).catch(e => console.error('[deploy] submit error:', e));
 
@@ -204,24 +283,18 @@ export interface TradeParams {
   adaOut?: string;
 }
 
-/** Timing from deploy server + Next proxy (see deploy-server /trade/build). */
 export interface TradeBuildProfile {
   createUnprovenMs: number;
   serverTotalMs: number;
-  /** Time for browser → Vercel → deploy server → back (includes all server work). */
   proxyRoundTripMs?: number;
-  /** Set on the client after Lace balance + submit. */
   walletMs?: number;
 }
 
 export interface TradeResult {
-  /** Transaction identifier from deserialized balanced tx (Lace does not return an id from submit). */
   txId: string;
   contractAddress: string;
   action: string;
-  /** Present after a successful trade when profiling data was returned. */
   profile?: TradeBuildProfile;
-  /** Lace balance + submit only. */
   walletMs?: number;
 }
 
@@ -255,48 +328,27 @@ function tradeBuildErrorMessage(status: number, body: string): string {
 }
 
 /**
- * POST /api/trade/unproven → deploy server builds unproven tx (no server-side proving).
+ * Build + prove a trade tx (auto-detects Lace vs server proving).
+ * Returns the proved hex ready for finalizeTradeInWallet.
  */
-export async function buildTradeUnprovenTx(params: TradeParams): Promise<{
-  unprovenTxHex: string;
-}> {
-  const res = await fetch('/api/trade/unproven', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    let msg: string;
-    try {
-      msg = (JSON.parse(text) as { error?: string }).error ?? text;
-    } catch {
-      msg = text;
-    }
-    throw new Error(tradeBuildErrorMessage(res.status, msg));
-  }
-
-  const body = (await res.json()) as { unprovenTxHex: string };
-  if (!body.unprovenTxHex) throw new Error('Trade build returned no unprovenTxHex');
-  return { unprovenTxHex: body.unprovenTxHex };
+export async function buildProvedTradeTx(
+  params: TradeParams,
+  wallet: ConnectedAPI,
+): Promise<{ provedTxHex: string }> {
+  const provedTxHex = await getProvedTradeTx(wallet, params);
+  return { provedTxHex };
 }
 
 /**
- * Prove via Lace, balance fees in Lace, and submit.
+ * Balance fees in Lace and submit an already-proved tx.
  */
 export async function finalizeTradeInWallet(
   wallet: ConnectedAPI,
-  unprovenTxHex: string,
+  provedTxHex: string,
   _meta: Pick<TradeParams, 'contractAddress' | 'action'>,
 ): Promise<Pick<TradeResult, 'txId' | 'walletMs'>> {
   const w0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
-  // Prove via Lace's proving provider
-  const deployServerUrl = (process.env.NEXT_PUBLIC_DEPLOY_SERVER_URL ?? 'http://localhost:3001').replace(/\/$/, '');
-  const provedTxHex = await proveViaLace(wallet, unprovenTxHex, `${deployServerUrl}/zk-config`);
-
-  // Balance + sign via Lace
   const balanced = await wallet.balanceUnsealedTransaction(provedTxHex);
   let txId: string;
   try {
@@ -312,16 +364,15 @@ export async function finalizeTradeInWallet(
 }
 
 /**
- * 1) POST /api/trade/unproven → deploy server builds unproven circuit call tx.
- * 2) Browser proves via Lace's getProvingProvider (ZK proof ~30s).
- * 3) Lace balances fees / unshielded inputs and submits — you approve in the wallet.
+ * Build + prove a trade tx, then balance + submit via Lace.
+ * Auto-detects whether to prove client-side (Lace) or server-side.
  */
 export async function executeTradeWithWallet(
   params: TradeParams,
   wallet: ConnectedAPI,
 ): Promise<TradeResult> {
-  const { unprovenTxHex } = await buildTradeUnprovenTx(params);
-  const { txId, walletMs } = await finalizeTradeInWallet(wallet, unprovenTxHex, params);
+  const provedTxHex = await getProvedTradeTx(wallet, params);
+  const { txId, walletMs } = await finalizeTradeInWallet(wallet, provedTxHex, params);
 
   return {
     txId,

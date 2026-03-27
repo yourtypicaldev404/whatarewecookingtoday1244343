@@ -6,7 +6,7 @@ import Navbar from '@/components/Navbar';
 import ZkWorkOverlay from '@/components/ZkWorkOverlay';
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
 import {
-  buildTradeUnprovenTx,
+  buildProvedTradeTx,
   finalizeTradeInWallet,
   type TradeParams,
   type TradeBuildProfile,
@@ -105,10 +105,10 @@ export default function TokenPage() {
         };
       }
 
-      const { unprovenTxHex } = await buildTradeUnprovenTx(params);
+      const { provedTxHex } = await buildProvedTradeTx(params, api);
       setTradePhase('wallet');
 
-      const { txId, walletMs } = await finalizeTradeInWallet(api, unprovenTxHex, {
+      const { txId, walletMs } = await finalizeTradeInWallet(api, provedTxHex, {
         contractAddress: params.contractAddress,
         action: params.action,
       });
