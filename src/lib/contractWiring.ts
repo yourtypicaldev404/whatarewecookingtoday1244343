@@ -41,12 +41,45 @@ export async function deployBondingCurveViaWallet(
   wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Get user's ZK public keys so the server builds tx outputs to their address.
-  // Lace needs to recognise the outputs as its own in order to balance the tx.
+  // Step 1: Check Lace's configured indexer is reachable.
+  // balanceUnsealedTransaction queries the indexer for DUST UTXOs after signing —
+  // if it's unreachable the promise hangs silently. Fail fast here instead.
+  let walletConfig: Awaited<ReturnType<typeof wallet.getConfiguration>>;
+  try {
+    walletConfig = await withTimeout(wallet.getConfiguration(), 5_000, 'getConfiguration timeout');
+    console.log('[deploy] Lace config — network:', walletConfig.networkId, '| indexer:', walletConfig.indexerUri);
+  } catch (e) {
+    console.warn('[deploy] Could not read Lace configuration:', e);
+    walletConfig = null as any;
+  }
+  if (walletConfig) {
+    try {
+      // POST a minimal GraphQL introspection query to verify the indexer is alive.
+      await withTimeout(
+        fetch(walletConfig.indexerUri, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: '{ __typename }' }),
+        }),
+        6_000,
+        'indexer probe timeout',
+      );
+      console.log('[deploy] indexer reachable ✓');
+    } catch {
+      throw new Error(
+        `The Midnight ${walletConfig.networkId} indexer is unreachable right now ` +
+        `(${walletConfig.indexerUri}). ` +
+        `The Preview network may be temporarily down. Please try again in a few minutes.`,
+      );
+    }
+  }
+
+  // Step 2: Get user's ZK public keys so the server builds tx outputs to their address.
   console.log('[deploy] fetching user shielded addresses...');
   const { shieldedCoinPublicKey, shieldedEncryptionPublicKey } = await wallet.getShieldedAddresses();
   console.log('[deploy] userCpk:', shieldedCoinPublicKey.slice(0, 20) + '...');
 
+  // Step 3: Server builds + ZK-proves the deploy tx (~30–60s).
   onPhase?.('proving');
   console.log('[deploy] POST /api/deploy — server proving (~30–60s)...');
   const res = await fetch('/api/deploy', {
@@ -70,21 +103,23 @@ export async function deployBondingCurveViaWallet(
   };
   console.log('[deploy] server proved tx, contractAddress:', contractAddress);
 
+  // Step 4: Lace adds DUST fee inputs, shows popup, user signs.
   onPhase?.('signing');
   console.log('[deploy] calling balanceUnsealedTransaction — Lace popup should appear...');
   const balanced = await withTimeout(
     wallet.balanceUnsealedTransaction(provedTxHex),
-    120_000,
-    'Lace wallet timed out waiting for approval (120s). ' +
-    'The Midnight Preview network may be temporarily unavailable — try again in a few minutes.',
+    90_000,
+    'Lace wallet did not respond after 90 seconds. ' +
+    'This usually means the Midnight network is unreachable or Lace lost its connection to the indexer. ' +
+    'Check that Lace is connected to Preview and try again.',
   );
-  console.log('[deploy] Lace signed, deriving txId...');
+  console.log('[deploy] Lace signed ✓');
 
   let txId: string;
   try { txId = txIdFromBalancedHex(balanced.tx); } catch { txId = `pending-${Date.now()}`; }
 
+  // Step 5: Fire-and-forget submit — submitTransaction can block waiting for node ACK.
   onPhase?.('submitting');
-  console.log('[deploy] submitting (fire-and-forget), txId:', txId);
   wallet.submitTransaction(balanced.tx).catch(e => console.error('[deploy] submit error:', e));
 
   return { contractAddress, txId };
