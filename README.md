@@ -43,36 +43,24 @@ Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transa
 | Deploy server | Railway, Express, v13 — always on |
 | Portfolio page | `/portfolio` — positions, P&L, created tokens, tx history **(mock data)** |
 | ZK work overlay | Phase-aware progress UI during deploy and trades |
-| Deploy (server-side) | Railway warm-wallet deploys the contract fully server-side (no Lace popup needed) |
+| Client-side Lace proving | Deploy + trades prove via Lace's `getProvingProvider`, then `balanceUnsealedTransaction` + `submitTransaction` — user signs everything |
 
 ### Partially Working / Blocked ⚠️
 
-#### Token Creation
-The deploy flow is architecturally complete:
-1. User fills form → `POST /api/deploy` → Railway
-2. Railway `WalletFacade` (warm wallet, synced at startup) calls `deployContract()` — proves + balances + submits using the server's own DUST wallet
-3. Returns `{contractAddress, txId}` → saved to Redis → redirect to token page
+#### Token Creation & Buy / Sell
+The flow uses **client-side proving via Lace's `getProvingProvider`**:
+1. Server builds an UNPROVEN tx (fast — circuit construction only, no ZK proving)
+2. Browser deserializes the unproven tx using `ledger-v8`
+3. Browser proves it via Lace's `getProvingProvider` (~30–60s) — ensures proof format matches Lace's internal balancer
+4. Browser calls `balanceUnsealedTransaction` → Lace popup → user approves → wallet adds DUST fee inputs
+5. Browser calls `submitTransaction` → broadcast to chain
 
-**Blocked by**: Midnight Preview network instability. When Preview is down, `buildWallet` / `WalletFacade.init()` can't sync and the deploy times out. When Preview is up, this flow should complete end-to-end without requiring the user to sign (the server wallet signs).
+This approach fixes the previous `balanceUnsealedTransaction` hang by ensuring the proof is generated through Lace's own proving infrastructure, avoiding the serialization format mismatch between the server's proof provider (ledger-v8) and Lace's internal deserializer.
 
-> **Note on signing**: The current server-side deploy means *the server's wallet* signs the deploy transaction, not the user's Lace wallet. This was a deliberate workaround because `wallet.balanceUnsealedTransaction()` in Lace consistently hangs after the user approves — the promise never resolves. A user-signed deploy would be preferable UX, but requires Lace to fix the `balanceUnsealedTransaction` hang.
-
-#### Buy / Sell
-Server side (Railway `createUnprovenCallTx` + `proofProvider.proveTx`) works and returns a proved tx hex. The broken step is Lace:
-
-```
-buildTradeProvenTx()   ✅ server builds + proves tx in ~30s
-balanceUnsealedTransaction(provedTxHex)  ❌ Lace popup appears, user signs → promise never resolves
-submitTransaction()    ❌ never reached
-```
-
-The hang happens regardless of whether the tx was built with the user's or server's `coinPublicKey`. Root cause is likely in the Lace DApp Connector or a version mismatch with the Midnight SDK. When this resolves, trades will work end-to-end — no code changes needed on the server.
-
-**Common errors seen in buy/sell:**
-- `Unable to deserialize Transaction` — tx format mismatch (fixed: server now proves before returning)
+**Common errors:**
 - `No public state found at contract address` — indexer hasn't indexed the contract yet, or Preview was reset after deploy (redeploy the token)
-- Hanging after Lace popup — `balanceUnsealedTransaction` promise never resolves
 - 502/503/504 — Railway deploy server cold start or proof server unavailable
+- Proving timeout — Lace's proof server may be slow or unreachable; check `proverServerUri` in Lace config
 
 ### Not Started ❌
 
@@ -83,7 +71,7 @@ The hang happens regardless of whether the tx was built with the user's or serve
 | Token images on homepage cards | Load `imageUri` from Redis and display instead of the moon emoji placeholder |
 | Graduation flow | When `adaReserve >= 69,000 DUST`, call contract's `graduate()` circuit and list on NorthStar DEX |
 | Real holder tracking | Parse ZK outputs from indexer to count unique holders per token |
-| User-signed deploys | Need Lace to fix `balanceUnsealedTransaction` or switch to a different Lace API |
+| End-to-end testing | Verify client-side Lace proving flow works with Preview network and Lace wallet |
 | Comment / bump system | Social layer — users bump tokens to the top by posting |
 | Token gating | Launch with a whitelist, vesting schedule, or creator fee |
 
@@ -91,33 +79,33 @@ The hang happens regardless of whether the tx was built with the user's or serve
 
 ## Architecture
 
-### Deploy Flow (current)
+### Deploy Flow (current — client-side proving via Lace)
 
 ```
 User fills launch form
-  ↓ POST /api/deploy (Vercel Next.js proxy, timeout 300s)
-  ↓ POST /deploy (Railway deploy server)
-      → ensureWalletReady()  — WalletFacade synced at startup, reused
-      → deployContract()     — prove + balance + submit (server wallet signs)
-      → returns { contractAddress, txId }
-  ↓ Vercel proxy returns { contractAddress, txId }
-  ↓ PATCH /api/tokens/[address] — save to Upstash Redis
+  ↓ POST /api/deploy/unproven (Vercel → Railway)
+      → createUnprovenDeployTx(walletProvider, compiledContract, args)
+      → returns { unprovenTxHex, contractAddress }
+  ↓ Browser: deserialize unproven tx (ledger-v8)
+  ↓ Browser: wallet.getProvingProvider(keyMaterial)
+  ↓ Browser: unprovenTx.prove(laceProvider, costModel)   ← ZK proof via Lace (~30–60s)
+  ↓ Browser: wallet.balanceUnsealedTransaction(provedHex) ← Lace popup, user signs
+  ↓ Browser: wallet.submitTransaction(balanced.tx)        ← broadcast
+  ↓ POST /api/tokens — save to Redis
   ↓ redirect /token/[contractAddress]
 ```
 
-### Trade Flow (current, partially working)
+### Trade Flow (current — client-side proving via Lace)
 
 ```
 User clicks Buy / Sell
-  ↓ POST /api/trade (Vercel proxy, timeout 240s)
-  ↓ POST /trade/build (Railway)
+  ↓ POST /api/trade/unproven (Vercel → Railway)
       → createUnprovenCallTx(contractAddress, buy|sell, args)
-      → proofProvider.proveTx(unprovenTx)    ← server-side ZK proof (~30s)
-      → returns provedTxHex
-  ↓ wallet.balanceUnsealedTransaction(provedTxHex)   ← HANGS in Lace
-      Lace should: add DUST fee inputs + show popup + return balanced tx
-  ↓ wallet.submitTransaction(balanced.tx)            ← never reached
-  ↓ PATCH /api/tokens/[address] — update reserves    ← never reached
+      → returns { unprovenTxHex }
+  ↓ Browser: deserialize + prove via Lace's getProvingProvider (~30s)
+  ↓ Browser: wallet.balanceUnsealedTransaction(provedHex) ← Lace popup, user signs
+  ↓ Browser: wallet.submitTransaction(balanced.tx)
+  ↓ PATCH /api/tokens/[address] — update reserves
 ```
 
 ---
@@ -220,8 +208,8 @@ PORT=3001
 
 | Issue | Cause | Workaround |
 |-------|-------|------------|
-| Deploy times out / fails | Midnight Preview chain down — WalletFacade can't sync | Wait for chain to come back up |
-| Buy/sell hangs after Lace popup | `balanceUnsealedTransaction` in Lace DApp Connector never resolves | No workaround yet — Lace bug |
+| Deploy times out / fails | Midnight Preview chain down or Lace proof server unreachable | Wait for chain to come back up; check Lace prover config |
+| Buy/sell hangs after Lace popup | `balanceUnsealedTransaction` format mismatch (mitigated by client-side Lace proving) | Ensure Lace is updated and `getProvingProvider` is used |
 | `No public state found` on trade | Token deployed on a different chain epoch / Preview was reset | Redeploy the token |
 | Portfolio shows mock data | No indexer API for user ZK balances yet | Real data needs Midnight indexer extension |
 | Token images show moon emoji | `imageUri` stored but not rendered in cards | Load IPFS URL in `TokenCard` component |

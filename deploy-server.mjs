@@ -302,6 +302,36 @@ app.get('/health', (_, res) => {
 });
 
 /**
+ * Serve ZK config artifacts (prover keys, verifier keys, zkir) so the browser's
+ * FetchZkConfigProvider can load them for client-side proving via Lace's getProvingProvider.
+ *
+ * FetchZkConfigProvider expects:
+ *   GET {baseURL}/keys/{circuitId}.prover
+ *   GET {baseURL}/keys/{circuitId}.verifier
+ *   GET {baseURL}/zkir/{circuitId}.bzkir
+ *
+ * We also support the non-.bzkir extension (.zkir) for compat.
+ */
+app.use('/zk-config', express.static(ZK_PATH, {
+  setHeaders(res) {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cache-Control', 'public, max-age=86400');
+  },
+}));
+
+// FetchZkConfigProvider requests .bzkir but our files are .zkir — add a fallback
+app.get('/zk-config/zkir/:circuit.bzkir', (req, res) => {
+  const filePath = path.join(ZK_PATH, 'zkir', `${req.params.circuit}.zkir`);
+  if (fs.existsSync(filePath)) {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.sendFile(filePath);
+  } else {
+    res.status(404).json({ error: `zkir not found: ${req.params.circuit}` });
+  }
+});
+
+/**
  * Build and ZK-prove a deploy tx for the user's Lace wallet to sign.
  * Returns { provedTxHex, contractAddress } — browser calls
  * wallet.balanceUnsealedTransaction(provedTxHex) to add fees + get Lace popup,
@@ -346,6 +376,49 @@ app.post('/deploy', async (req, res) => {
     res.json({ provedTxHex, contractAddress });
   } catch (err) {
     console.error('[deploy] Failed:', err.message, '\n', err.stack);
+    res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
+  }
+});
+
+/**
+ * Build an UNPROVEN deploy tx — the browser will prove it via Lace's getProvingProvider,
+ * then balance + submit through Lace. This avoids the serialization mismatch that causes
+ * balanceUnsealedTransaction to hang when the proof comes from a server-side provider.
+ *
+ * Returns { unprovenTxHex, contractAddress }
+ */
+app.post('/deploy/unproven', async (req, res) => {
+  const { userCoinPublicKey, userEncryptionPublicKey } = req.body;
+  console.log('[deploy/unproven] Building unproven deploy tx',
+    '| userCpk:', userCoinPublicKey ? userCoinPublicKey.slice(0, 20) + '...' : 'none');
+  try {
+    const zkConfig   = new NodeZkConfigProvider(ZK_PATH);
+    const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
+    const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
+    const witnesses  = { treasurySecretKey: () => treasurySk };
+    const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
+      CompiledContract.withWitnesses(witnesses),
+      CompiledContract.withCompiledFileAssets(ZK_PATH),
+    );
+
+    const walletProvider = (userCoinPublicKey && userEncryptionPublicKey)
+      ? { getCoinPublicKey: () => userCoinPublicKey, getEncryptionPublicKey: () => userEncryptionPublicKey }
+      : TRADE_WALLET_PROVIDER;
+
+    const signingKey = Buffer.from(globalThis.crypto.getRandomValues(new Uint8Array(32))).toString('hex');
+
+    console.log('[deploy/unproven] createUnprovenDeployTx...');
+    const unprovenData = await createUnprovenDeployTx(
+      { zkConfigProvider: zkConfig, walletProvider },
+      { compiledContract, initialPrivateState: {}, args: [creatorSk, treasurySk], signingKey },
+    );
+    const contractAddress = unprovenData.public.contractAddress;
+    const unprovenTxHex   = Buffer.from(unprovenData.private.unprovenTx.serialize()).toString('hex');
+    console.log('[deploy/unproven] contractAddress:', contractAddress, '— returning unproven tx for client-side proving');
+
+    res.json({ unprovenTxHex, contractAddress });
+  } catch (err) {
+    console.error('[deploy/unproven] Failed:', err.message, '\n', err.stack);
     res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
   }
 });
@@ -435,6 +508,60 @@ app.post('/trade/build', async (req, res) => {
     res.json({ unprovenTxHex, contractAddress, action, profile });
   } catch (err) {
     console.error('Trade build failed:', err.message);
+    res.status(500).json({ error: formatTradeBuildError(err) });
+  }
+});
+
+/**
+ * Build an UNPROVEN buy/sell tx — browser proves via Lace's getProvingProvider,
+ * then balances + submits through Lace.
+ */
+app.post('/trade/unproven', async (req, res) => {
+  let { contractAddress, action, adaIn, tokensOut, tokensIn, adaOut } = req.body;
+  contractAddress = contractAddress?.replace(/^0x/, '');
+  console.log(`[trade/unproven] ${action} on ${contractAddress}`);
+
+  if (!contractAddress || !action || !['buy', 'sell'].includes(action)) {
+    return res.status(400).json({ error: 'Missing contractAddress or invalid action (buy|sell)' });
+  }
+  if (action === 'buy' && (adaIn === undefined || tokensOut === undefined)) {
+    return res.status(400).json({ error: 'buy requires adaIn and tokensOut' });
+  }
+  if (action === 'sell' && (tokensIn === undefined || adaOut === undefined)) {
+    return res.status(400).json({ error: 'sell requires tokensIn and adaOut' });
+  }
+
+  try {
+    const zkConfig = new NodeZkConfigProvider(ZK_PATH);
+    const publicDataProvider = indexerPublicDataProvider(INDEXER, INDEXERWS);
+    const providers = {
+      zkConfigProvider: zkConfig,
+      publicDataProvider,
+      walletProvider: TRADE_WALLET_PROVIDER,
+    };
+
+    const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
+    const witnesses = { treasurySecretKey: () => treasurySk };
+    const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
+      CompiledContract.withWitnesses(witnesses),
+      CompiledContract.withCompiledFileAssets(ZK_PATH),
+    );
+
+    const args = action === 'buy'
+      ? [BigInt(adaIn), BigInt(tokensOut)]
+      : [BigInt(tokensIn), BigInt(adaOut)];
+
+    const unsubmitted = await createUnprovenCallTx(providers, {
+      compiledContract,
+      contractAddress,
+      circuitId: action === 'buy' ? 'buy' : 'sell',
+      args,
+    });
+
+    const unprovenTxHex = Buffer.from(unsubmitted.private.unprovenTx.serialize()).toString('hex');
+    res.json({ unprovenTxHex, contractAddress, action });
+  } catch (err) {
+    console.error('[trade/unproven] failed:', err.message);
     res.status(500).json({ error: formatTradeBuildError(err) });
   }
 });

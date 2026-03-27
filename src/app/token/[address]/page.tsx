@@ -6,7 +6,7 @@ import Navbar from '@/components/Navbar';
 import ZkWorkOverlay from '@/components/ZkWorkOverlay';
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
 import {
-  buildTradeProvenTx,
+  buildTradeUnprovenTx,
   finalizeTradeInWallet,
   type TradeParams,
   type TradeBuildProfile,
@@ -105,15 +105,14 @@ export default function TokenPage() {
         };
       }
 
-      const { unprovenTxHex, profile } = await buildTradeProvenTx(params);
-      setTradeProfile(profile);
+      const { unprovenTxHex } = await buildTradeUnprovenTx(params);
       setTradePhase('wallet');
 
       const { txId, walletMs } = await finalizeTradeInWallet(api, unprovenTxHex, {
         contractAddress: params.contractAddress,
         action: params.action,
       });
-      setTxResult({ txId, profile: { ...profile, walletMs } });
+      setTxResult({ txId, profile: { createUnprovenMs: 0, serverTotalMs: 0, walletMs } });
 
       // Update reserves in Redis after confirmed trade
       const adaCurrent = BigInt(token.adaReserve);
