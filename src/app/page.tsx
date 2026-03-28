@@ -1,213 +1,324 @@
 'use client';
-
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
-import TokenCard from '@/components/TokenCard';
-type TokenRecord = any;
-import {
-  fmtDust, fmtMcap, bondingProgress, spotPrice, kothScore,
-} from '@/lib/midnight/bondingCurve';
-import { PUBLIC_FAUCET_URL, PUBLIC_NETWORK_LABEL } from '@/lib/network';
+import { bondingProgress, fmtDust, fmtMcap, spotPrice, kothScore, timeAgo } from '@/lib/midnight/bondingCurve';
 
-type SortMode = 'bump' | 'new' | 'mcap' | 'graduated';
+type Token = any;
+
+const TICKER_TOKENS = [
+  { ticker: 'NITE', pct: '+42.1' }, { ticker: 'DUST', pct: '-8.3' },
+  { ticker: 'MOON', pct: '+128.0' }, { ticker: 'DARK', pct: '+5.7' },
+  { ticker: 'ZK',   pct: '-2.1' },  { ticker: 'PRIV', pct: '+19.4' },
+  { ticker: 'VOID', pct: '+87.3' }, { ticker: 'SHLD', pct: '-12.5' },
+];
 
 export default function HomePage() {
-  const [tokens, setTokens]     = useState<TokenRecord[]>([]);
-  const [koth, setKoth]         = useState<TokenRecord | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [sort, setSort]         = useState<SortMode>('bump');
-  const [search, setSearch]     = useState('');
+  const [tokens, setTokens] = useState<Token[]>([]);
+  const [sort, setSort] = useState<'bump' | 'new' | 'mcap' | 'graduated'>('bump');
+  const [search, setSearch] = useState('');
+  const [koth, setKoth] = useState<Token | null>(null);
 
-  // Fetch token registry
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res  = await fetch(`/api/tokens?sort=${sort}&limit=50`);
-        const data = await res.json() as { tokens: TokenRecord[]; kothAddress: string };
-        setTokens(data.tokens);
-        const k = data.tokens.find(t => t.address === data.kothAddress);
-        setKoth(k ?? null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-    const id = setInterval(load, 15_000);   // refresh every 15s
-    return () => clearInterval(id);
-  }, [sort]);
+    fetch(`/api/tokens?sort=${sort}&limit=50${search ? `&search=${search}` : ''}`)
+      .then(r => r.json())
+      .then(({ tokens, kothAddress }) => {
+        setTokens(tokens ?? []);
+        if (kothAddress) setKoth((tokens ?? []).find((t: Token) => t.address === kothAddress) ?? null);
+      })
+      .catch(console.error);
+  }, [sort, search]);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return tokens;
-    const q = search.toLowerCase();
-    return tokens.filter(t =>
-      t.name.toLowerCase().includes(q)    ||
-      t.ticker.toLowerCase().includes(q)  ||
-      t.address.toLowerCase().includes(q)
-    );
-  }, [tokens, search]);
+  const TICKER_DOUBLED = [...TICKER_TOKENS, ...TICKER_TOKENS];
 
   return (
-    <div style={{ minHeight: '100vh', paddingTop: 56 }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div style={{ position: 'relative', padding: '56px 0 40px', textAlign: 'center', overflow: 'hidden' }}>
-        <div style={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%,-50%)',
-          width: 600, height: 280,
-          background: 'radial-gradient(ellipse,rgba(139,92,246,.14) 0%,transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-
-        <div className="container" style={{ position: 'relative' }}>
-          <div style={{ marginBottom: 14 }}>
-            <span className="badge badge-violet">
-              <span className="live-dot" />
-              {PUBLIC_NETWORK_LABEL} live
-            </span>
-          </div>
-
-          <h1 style={{ fontSize: 'clamp(32px,5.5vw,68px)', fontWeight: 800, letterSpacing: '-0.04em', marginBottom: 14, lineHeight: 1 }}>
-            <span className="gradient-text">Night</span>
-            <span>. Trade in the dark.</span>
-          </h1>
-
-          <p style={{ fontSize: 17, color: 'var(--text-secondary)', maxWidth: 500, margin: '0 auto 28px', lineHeight: 1.6 }}>
-            First memecoin launchpad on Midnight.
-            Privacy-first bonding curves. ZK-verified trades.{' '}
-            <span className="serif">Your wallet, your secret.</span>
-          </p>
-
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 36 }}>
-            <Link href="/launch">
-              <button className="btn btn-primary" style={{ fontSize: 15, padding: '12px 26px' }}>🚀 Launch a token</button>
-            </Link>
-            {PUBLIC_FAUCET_URL ? (
-              <a href={PUBLIC_FAUCET_URL} target="_blank" rel="noopener noreferrer">
-                <button type="button" className="btn btn-secondary" style={{ fontSize: 15, padding: '12px 26px' }}>🚰 Get testnet DUST</button>
-              </a>
-            ) : null}
-          </div>
-
-          {/* Stats */}
-          <div style={{ display: 'flex', gap: 28, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {[
-              { label: 'Tokens', value: tokens.length.toString() },
-              { label: 'Volume', value: `₾${fmtDust(tokens.reduce((a,t) => a + BigInt(t.totalVolume), 0n), 0)}` },
-              { label: 'Graduated', value: tokens.filter(t=>t.graduated).length.toString() },
-              { label: 'Traders', value: '—' },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 600, color: 'var(--neon-violet-bright)' }}>{value}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
-              </div>
-            ))}
-          </div>
+      {/* Ticker strip */}
+      <div className="ticker-strip">
+        <div className="ticker-scroll">
+          {TICKER_DOUBLED.map((t, i) => (
+            <div key={i} className="ticker-item">
+              <span style={{ color: 'var(--text-muted)', fontSize: 9 }}>●</span>
+              <span style={{ fontWeight: 600 }}>{t.ticker}</span>
+              <span className={parseFloat(t.pct) >= 0 ? 'up' : 'down'}>{t.pct}%</span>
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="container" style={{ paddingBottom: 80 }}>
+      <div className="discover-page" style={{ flex: 1 }}>
 
-        {/* ── King of the Hill ──────────────────────────────────────────── */}
-        {koth && (
-          <div style={{ marginBottom: 36 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <span style={{ fontSize: 20, animation: 'crown 2s ease-in-out infinite' }}>👑</span>
-              <span style={{ fontWeight: 700, fontSize: 17, color: 'var(--neon-amber)' }}>King of the Hill</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 12, fontFamily: 'var(--font-mono)' }}>— highest momentum right now</span>
+        {/* Hero */}
+        <div style={{ marginBottom: 24, textAlign: 'center', padding: '20px 0 8px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div className="badge badge-teal">
+              <div className="pulse" />
+              PREPROD LIVE
             </div>
-
-            <Link href={`/token/${koth.address}`} style={{ textDecoration: 'none' }}>
-              <div style={{
-                background: 'linear-gradient(135deg,rgba(251,191,36,.05),rgba(139,92,246,.05))',
-                border: '1px solid rgba(251,191,36,.22)',
-                borderRadius: 18, padding: 22,
-                display: 'flex', gap: 20, alignItems: 'center',
-                cursor: 'pointer', transition: 'all .2s',
-                boxShadow: '0 0 36px rgba(251,191,36,.05)',
+            <div className="badge badge-violet">ZK-PROTECTED</div>
+          </div>
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(28px, 5vw, 52px)',
+            fontWeight: 800,
+            letterSpacing: '-1px',
+            lineHeight: 1.1,
+            color: 'var(--text-primary)',
+            marginBottom: 10,
+          }}>
+            <span style={{ color: 'var(--teal)' }}>Night.</span> Trade in the dark.
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 14, maxWidth: 480, margin: '0 auto 20px' }}>
+            First memecoin launchpad on Midnight. Privacy-first bonding curves. ZK-verified trades. Your wallet, your secret.
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/launch" style={{ textDecoration: 'none' }}>
+              <button style={{
+                padding: '10px 22px',
+                background: 'var(--teal)',
+                color: '#000',
+                border: 'none',
+                borderRadius: 8,
+                fontFamily: 'var(--font-display)',
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                letterSpacing: '0.2px',
               }}>
-                <div style={{
-                  width: 68, height: 68, borderRadius: 16, flexShrink: 0,
-                  background: 'linear-gradient(135deg,#f59e0b,#8b5cf6)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 32, border: '2px solid rgba(251,191,36,.35)',
-                }}>🌙</div>
-
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 800, fontSize: 21 }}>{koth.name}</span>
-                    <span className="badge badge-amber">${koth.ticker}</span>
-                    <span className="badge badge-violet">{koth.holderCount} holders</span>
-                  </div>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 10 }}>{koth.description}</p>
-                  <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap' }}>
-                    {[
-                      { label: 'Volume',   value: `₾${fmtDust(BigInt(koth.totalVolume), 0)}` },
-                      { label: 'Txns',     value: koth.txCount.toString() },
-                      { label: 'Progress', value: `${bondingProgress(BigInt(koth.adaReserve))}%` },
-                      { label: 'Mcap',     value: fmtMcap(BigInt(koth.adaReserve)) },
-                    ].map(({ label, value }) => (
-                      <div key={label}>
-                        <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.07em' }}>{label} </span>
-                        <span style={{ color: 'var(--neon-amber)', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 600 }}>{value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <button className="btn btn-primary" style={{ flexShrink: 0, fontSize: 13 }}>Trade now →</button>
-              </div>
+                🚀 Launch a token
+              </button>
             </Link>
+            <a href="https://faucet.preprod.midnight.network/" target="_blank" rel="noopener" style={{ textDecoration: 'none' }}>
+              <button style={{
+                padding: '10px 22px',
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 8,
+                fontFamily: 'var(--font-body)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+              }}>
+                🪣 Get testnet DUST
+              </button>
+            </a>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 24, flexWrap: 'wrap' }}>
+          {[
+            { label: 'TOKENS', value: tokens.length.toString() },
+            { label: 'VOLUME', value: '₾' + fmtDust(tokens.reduce((a, t) => a + BigInt(t.totalVolume ?? '0'), 0n), 0) },
+            { label: 'GRADUATED', value: tokens.filter(t => t.graduated).length.toString() },
+            { label: 'TRADERS', value: '—' },
+          ].map(s => (
+            <div key={s.label} style={{
+              textAlign: 'center',
+              padding: '8px 20px',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 8,
+            }}>
+              <div className="stat-label">{s.label}</div>
+              <div className="stat-value" style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* KotH */}
+        {koth && (
+          <div className="koth-banner">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 14 }}>👑</span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 700, color: 'var(--amber)' }}>KING OF THE HILL</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>— highest momentum</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div className="token-avatar" style={{ width: 44, height: 44 }}>
+                {koth.imageUri && koth.imageUri !== 'ipfs://'
+                  ? <img src={koth.imageUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} alt={koth.name} onError={e => { (e.target as any).parentElement.innerHTML = '🌙'; }} />
+                  : '🌙'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 800 }}>{koth.name}</span>
+                  <span className="badge badge-violet">${koth.ticker}</span>
+                  <span className="badge" style={{ color: 'var(--text-muted)', fontSize: 10 }}>{koth.holderCount} holders</span>
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 11, marginBottom: 8, maxWidth: 400 }}>{koth.description || '—'}</p>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  {[
+                    ['VOL', '₾' + fmtDust(BigInt(koth.totalVolume ?? '0'), 0)],
+                    ['TXNS', koth.txCount],
+                    ['PROGRESS', bondingProgress(BigInt(koth.adaReserve ?? '0')) + '%'],
+                    ['MCAP', fmtMcap(BigInt(koth.adaReserve ?? '0'))],
+                  ].map(([l, v]) => (
+                    <div key={l}>
+                      <div className="stat-label">{l}</div>
+                      <div className="stat-value" style={{ fontSize: 12 }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Link href={`/token/${koth.address}`} style={{ textDecoration: 'none', flexShrink: 0 }}>
+                <button style={{
+                  padding: '8px 16px',
+                  background: 'var(--violet-dim)',
+                  border: '1px solid rgba(139,111,232,0.3)',
+                  borderRadius: 7,
+                  color: 'var(--violet)',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}>
+                  Trade now →
+                </button>
+              </Link>
+            </div>
           </div>
         )}
 
-        {/* ── Filter bar ───────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ display: 'flex', background: 'var(--night-raised)', border: '1px solid var(--night-border)', borderRadius: 10, padding: 3, gap: 2 }}>
-            {([
-              { key: 'bump',      label: 'Last Bump'  },
-              { key: 'new',       label: 'New'        },
-              { key: 'mcap',      label: 'Mcap'       },
-              { key: 'graduated', label: '✅ Complete' },
-            ] as { key: SortMode; label: string }[]).map(({ key, label }) => (
-              <button key={key} onClick={() => setSort(key)} style={{
-                background:  sort === key ? 'rgba(139,92,246,.18)' : 'transparent',
-                border:      sort === key ? '1px solid rgba(139,92,246,.4)' : '1px solid transparent',
-                color:       sort === key ? 'var(--neon-violet-bright)' : 'var(--text-secondary)',
-                borderRadius: 8, padding: '5px 12px', cursor: 'pointer',
-                fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 12,
-                transition: 'all .12s',
-              }}>{label}</button>
+        {/* Filter row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div className="tab-row">
+            {(['bump', 'new', 'mcap', 'graduated'] as const).map(s => (
+              <button key={s} className={`tab-btn ${sort === s ? 'active' : ''}`} onClick={() => setSort(s)}>
+                {s === 'bump' ? 'Last Bump' : s === 'new' ? 'New' : s === 'mcap' ? 'Mcap' : '✅ Complete'}
+              </button>
             ))}
           </div>
-
-          <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 13, pointerEvents: 'none', color: 'var(--text-muted)' }}>🔍</span>
+          <div style={{ flex: 1, minWidth: 160 }}>
             <input
               type="text"
-              placeholder="Search name, ticker, or address…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ paddingLeft: 32, fontSize: 13 }}
+              placeholder="Search name, ticker, address…"
+              style={{
+                width: '100%',
+                height: 30,
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 6,
+                padding: '0 10px',
+                fontSize: 12,
+                color: 'var(--text-primary)',
+                outline: 'none',
+                fontFamily: 'var(--font-body)',
+              }}
             />
           </div>
         </div>
 
-        {/* ── Token grid ───────────────────────────────────────────────── */}
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
-            Loading tokens from {PUBLIC_NETWORK_LABEL}…
-          </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: 40, marginBottom: 10 }}>🌙</div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>No tokens found. The night is quiet.</div>
+        {/* Token grid */}
+        {tokens.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🌙</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>No tokens yet — be the first to launch</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(320px,1fr))', gap: 14 }}>
-            {filtered.map(token => <TokenCard key={token.address} token={token} />)}
+          <div className="token-grid">
+            {tokens.map((token: Token) => {
+              const ada = BigInt(token.adaReserve ?? '0');
+              const tok = BigInt(token.tokenReserve ?? '999000000000000');
+              const prog = bondingProgress(ada);
+              return (
+                <Link key={token.address} href={`/token/${token.address}`} style={{ textDecoration: 'none' }}>
+                  <div className="token-card">
+                    {/* Card header */}
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
+                      <div className="token-avatar" style={{ width: 38, height: 38, fontSize: 16 }}>
+                        {token.imageUri && token.imageUri !== 'ipfs://'
+                          ? <img src={token.imageUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} alt={token.name} onError={e => { (e.target as any).parentElement.innerHTML = '🌙'; }} />
+                          : '🌙'}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
+                          <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {token.name}
+                          </span>
+                          {token.graduated && <span className="badge badge-green" style={{ fontSize: 9 }}>GRAD</span>}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <span className="badge badge-violet" style={{ fontSize: 9 }}>${token.ticker}</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)' }}>
+                            {token.address.slice(0, 6)}…{token.address.slice(-4)}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div className="stat-value" style={{ fontSize: 12 }}>{fmtMcap(ada)}</div>
+                        <div className="stat-label">mcap</div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    {token.description && (
+                      <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 10, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {token.description}
+                      </p>
+                    )}
+
+                    {/* Progress */}
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span className="stat-label">bonding curve</span>
+                        <span className="stat-label" style={{ color: prog > 80 ? 'var(--green)' : 'var(--text-muted)' }}>{prog}%</span>
+                      </div>
+                      <div className="progress-track">
+                        <div className="progress-fill" style={{ width: `${prog}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <div>
+                          <div className="stat-label">vol</div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>₾{fmtDust(BigInt(token.totalVolume ?? '0'), 0)}</div>
+                        </div>
+                        <div>
+                          <div className="stat-label">txns</div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{token.txCount ?? 0}</div>
+                        </div>
+                        <div>
+                          <div className="stat-label">holders</div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)' }}>{token.holderCount ?? 1}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                        style={{
+                          padding: '4px 10px',
+                          background: 'var(--teal-dim)',
+                          border: '1px solid rgba(0,229,160,0.2)',
+                          borderRadius: 5,
+                          color: 'var(--teal)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 10,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ₾50 Buy
+                      </button>
+                    </div>
+
+                    {/* Age */}
+                    <div style={{ marginTop: 8, borderTop: '1px solid var(--border-dim)', paddingTop: 6 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
+                        {timeAgo ? timeAgo(token.deployedAt) : `${Math.floor((Date.now()/1000 - token.deployedAt)/60)}m ago`}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
