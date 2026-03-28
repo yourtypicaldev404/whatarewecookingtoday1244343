@@ -2,56 +2,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-<<<<<<< HEAD
-import ZkWorkOverlay from '@/components/ZkWorkOverlay';
-import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, calcTokensOut, calcAdaOut } from '@/lib/midnight/bondingCurve';
-import {
-  buildProvedTradeTx,
-  finalizeTradeInWallet,
-  type TradeParams,
-  type TradeBuildProfile,
-} from '@/lib/contractWiring';
-import { MIDNIGHT_NETWORK_CAPTION } from '@/lib/network';
-import { useWallet } from '@/lib/wallet/WalletProvider';
-=======
 import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, spotPrice, timeAgo } from '@/lib/midnight/bondingCurve';
->>>>>>> 27ae2c7 (feat: Cryptographic Noir UI redesign)
 
 export default function TokenPage() {
   const { address } = useParams<{ address: string }>();
   const [token, setToken] = useState<any>(null);
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('');
-<<<<<<< HEAD
-  const [trading, setTrading] = useState(false);
-  const [txResult, setTxResult] = useState<{ txId: string; profile?: TradeBuildProfile } | null>(null);
-  const [tradePhase, setTradePhase] = useState<'server' | 'wallet' | null>(null);
-  const [tradeProfile, setTradeProfile] = useState<TradeBuildProfile | null>(null);
-  const [tradeError, setTradeError] = useState<string | null>(null);
-  const [contractMissing, setContractMissing] = useState(false);
-
-  useEffect(() => {
-    if (!address) return;
-    fetch('/api/trade', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contractAddress: address, action: 'buy', adaIn: '1000000', tokensOut: '1' }),
-    }).then(async r => {
-      if (!r.ok) {
-        const text = await r.text();
-        let msg = text;
-        try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
-        if (/no public state found at contract address/i.test(msg)) {
-          setContractMissing(true);
-        }
-      }
-    }).catch(() => {});
-  }, [address]);
-=======
   const [activeTab, setActiveTab] = useState('trades');
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<any>(null);
->>>>>>> 27ae2c7 (feat: Cryptographic Noir UI redesign)
 
   useEffect(() => {
     fetch('/api/tokens?limit=100')
@@ -66,102 +26,6 @@ export default function TokenPage() {
       });
   }, [address]);
 
-<<<<<<< HEAD
-  const adaIn = amount ? BigInt(Math.floor(parseFloat(amount)*1_000_000)) : 0n;
-  const tokensIn = amount ? BigInt(Math.floor(parseFloat(amount)*1_000_000_000_000)) : 0n;
-  const ada = token ? BigInt(token.adaReserve) : 0n;
-  const tok = token ? BigInt(token.tokenReserve) : 999000000000000n;
-  const quote = tradeMode==='buy' && adaIn>0n ? getBuyQuote(adaIn, ada, tok) : tradeMode==='sell' && tokensIn>0n ? getSellQuote(tokensIn, ada, tok) : null;
-  const progress = bondingProgress(ada);
-
-  async function handleTrade() {
-    if (!amount || !token) return;
-    if (!connected || !api) {
-      setTradeError('Connect your Lace wallet first (Connect Lace in the header).');
-      return;
-    }
-    setTrading(true);
-    setTxResult(null);
-    setTradeError(null);
-    setTradePhase('server');
-    setTradeProfile(null);
-
-    try {
-      const ada = BigInt(token.adaReserve);
-      const tok = BigInt(token.tokenReserve);
-
-      let params: TradeParams;
-
-      if (tradeMode === 'buy') {
-        const adaInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
-        const fee = (adaInRaw * 100n) / 10_000n;
-        const netAda = adaInRaw - fee;
-        const tokensOut = calcTokensOut(netAda, ada, tok);
-        params = {
-          contractAddress: address,
-          action: 'buy',
-          adaIn: adaInRaw.toString(),
-          tokensOut: tokensOut.toString(),
-        };
-      } else {
-        const tokensInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000));
-        const grossAda = calcAdaOut(tokensInRaw, ada, tok);
-        const fee = (grossAda * 100n) / 10_000n;
-        const netAda = grossAda - fee;
-        params = {
-          contractAddress: address,
-          action: 'sell',
-          tokensIn: tokensInRaw.toString(),
-          adaOut: netAda.toString(),
-        };
-      }
-
-      const { provedTxHex } = await buildProvedTradeTx(params, api);
-      setTradePhase('wallet');
-
-      const { txId, walletMs } = await finalizeTradeInWallet(api, provedTxHex, {
-        contractAddress: params.contractAddress,
-        action: params.action,
-      });
-      setTxResult({ txId, profile: { createUnprovenMs: 0, serverTotalMs: 0, walletMs } });
-
-      // Update reserves in Redis after confirmed trade
-      const adaCurrent = BigInt(token.adaReserve);
-      const tokCurrent = BigInt(token.tokenReserve);
-      let newAda: bigint, newTok: bigint, newVol: bigint;
-
-      if (tradeMode === 'buy') {
-        const adaInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
-        const fee = (adaInRaw * 100n) / 10_000n;
-        const netAda = adaInRaw - fee;
-        const tokensOut = calcTokensOut(netAda, adaCurrent, tokCurrent);
-        newAda = adaCurrent + netAda;
-        newTok = tokCurrent - tokensOut;
-        newVol = BigInt(token.totalVolume) + adaInRaw;
-      } else {
-        const tokensInRaw = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000));
-        const grossAda = calcAdaOut(tokensInRaw, adaCurrent, tokCurrent);
-        const fee = (grossAda * 100n) / 10_000n;
-        const netAda = grossAda - fee;
-        newAda = adaCurrent - grossAda;
-        newTok = tokCurrent + tokensInRaw;
-        newVol = BigInt(token.totalVolume) + netAda;
-      }
-
-      const graduated = newAda >= GRADUATION_TARGET;
-
-      await fetch(`/api/tokens/${address}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          adaReserve: newAda.toString(),
-          tokenReserve: newTok.toString(),
-          totalVolume: newVol.toString(),
-          txCount: (token.txCount ?? 0) + 1,
-          graduated,
-          lastActivityAt: Math.floor(Date.now() / 1000),
-        }),
-=======
   useEffect(() => {
     if (!chartRef.current) return;
     let chart: any;
@@ -186,7 +50,6 @@ export default function TokenPage() {
         topColor: 'rgba(0,229,160,0.18)',
         bottomColor: 'rgba(0,229,160,0.0)',
         lineWidth: 2,
->>>>>>> 27ae2c7 (feat: Cryptographic Noir UI redesign)
       });
       const now = Math.floor(Date.now() / 1000);
       const data = Array.from({ length: 60 }, (_, i) => ({
@@ -545,86 +408,6 @@ export default function TokenPage() {
             </div>
           </div>
 
-<<<<<<< HEAD
-          <div style={{ position:'sticky', top:72 }}>
-            {contractMissing && (
-              <div style={{ background:'rgba(251,113,133,.1)', border:'1px solid rgba(251,113,133,.35)', borderRadius:10, padding:'12px 14px', marginBottom:12, fontFamily:'var(--font-mono)', fontSize:12 }}>
-                <div style={{ fontWeight:700, color:'var(--neon-rose)', marginBottom:4 }}>Contract not found on-chain</div>
-                <div style={{ color:'var(--text-secondary)', lineHeight:1.5 }}>
-                  This token's contract no longer exists on the indexer. The testnet was likely reset after it was deployed.
-                  <br />
-                  <a href="/launch" style={{ color:'var(--neon-violet-bright)', textDecoration:'underline', marginTop:4, display:'inline-block' }}>Launch a new token →</a>
-                </div>
-              </div>
-            )}
-            <div className="glass" style={{ padding:18 }}>
-              <div style={{ display:'flex', background:'var(--night-deep)', border:'1px solid var(--night-border)', borderRadius:10, padding:3, gap:2, marginBottom:16 }}>
-                {['buy','sell'].map(mode => (
-                  <button key={mode} onClick={()=>{setTradeMode(mode);setAmount('');}} style={{ flex:1, padding:9, borderRadius:8, cursor:'pointer', background: tradeMode===mode ? mode==='buy' ? 'rgba(16,185,129,.13)' : 'rgba(251,113,133,.13)' : 'transparent', border: tradeMode===mode ? mode==='buy' ? '1px solid rgba(16,185,129,.4)' : '1px solid rgba(251,113,133,.4)' : '1px solid transparent', color: tradeMode===mode ? mode==='buy' ? 'var(--neon-green)' : 'var(--neon-rose)' : 'var(--text-muted)', fontFamily:'var(--font-display)', fontWeight:700, fontSize:14 }}>
-                    {mode.charAt(0).toUpperCase()+mode.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              <input type="number" min="0" placeholder="0" value={amount} onChange={e=>setAmount(e.target.value)} style={{ fontFamily:'var(--font-mono)', fontSize:20, fontWeight:600, marginBottom:10 }} />
-
-              <div style={{ display:'flex', gap:6, marginBottom:14 }}>
-                {(tradeMode==='buy'?['25','100','250','500']:['25','50','75','100']).map(q=>(
-                  <button key={q} onClick={()=>setAmount(q)} style={{ flex:1, padding:'5px 0', background:'var(--night-deep)', border:'1px solid var(--night-border)', borderRadius:7, cursor:'pointer', color:'var(--text-secondary)', fontFamily:'var(--font-mono)', fontSize:11 }}>
-                    {tradeMode==='buy'?`₾${q}`:`${q}%`}
-                  </button>
-                ))}
-              </div>
-
-              {quote && (
-                <div style={{ background:'var(--night-deep)', border:'1px solid var(--night-border)', borderRadius:9, padding:12, marginBottom:12 }}>
-                  <div style={{ fontFamily:'var(--font-mono)', fontSize:10, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:5 }}>You receive</div>
-                  <div style={{ fontFamily:'var(--font-mono)', fontSize:20, fontWeight:700, marginBottom:6 }}>
-                    {tradeMode==='buy' ? fmtTokens(quote.amountOut) : fmtDust(quote.amountOut)}
-                    <span style={{ fontSize:12, color:'var(--text-muted)', fontWeight:400, marginLeft:5 }}>{tradeMode==='buy' ? token.ticker : 'DUST'}</span>
-                  </div>
-                  <div style={{ display:'flex', justifyContent:'space-between', fontFamily:'var(--font-mono)', fontSize:11 }}>
-                    <span style={{ color:'var(--text-muted)' }}>Price impact</span>
-                    <span style={{ color: quote.priceImpact>5?'var(--neon-rose)':'var(--neon-green)' }}>{quote.priceImpact.toFixed(2)}%</span>
-                  </div>
-                </div>
-              )}
-
-              {txResult && (
-                <div style={{ background:'rgba(16,185,129,.1)', border:'1px solid rgba(16,185,129,.3)', borderRadius:8, padding:'8px 12px', marginBottom:10, fontFamily:'var(--font-mono)', fontSize:11, color:'var(--neon-green)' }}>
-                  Submitted through Lace.<br/>
-                  <span style={{ color:'var(--text-secondary)', wordBreak:'break-all' }} title="Transaction id">{txResult.txId}</span>
-                  <br/>
-                  {txResult.profile ? (
-                    <span style={{ color:'var(--text-muted)', display:'block', marginTop:6 }}>
-                      Server {Math.round(txResult.profile.serverTotalMs / 1000)}s · wallet {txResult.profile.walletMs != null ? `${(txResult.profile.walletMs / 1000).toFixed(1)}s` : '—'}
-                      {txResult.profile.proxyRoundTripMs != null
-                        ? ` · round-trip ${(txResult.profile.proxyRoundTripMs / 1000).toFixed(1)}s`
-                        : ''}
-                    </span>
-                  ) : null}
-                  <span style={{ color:'var(--text-muted)', display:'block', marginTop:6 }}>Confirm status in Lace activity if needed.</span>
-                </div>
-              )}
-
-              {!connected && (
-                <p style={{ fontSize:12, color:'var(--neon-amber)', marginBottom:10 }}>Connect Lace to buy or sell — your keys stay in the wallet.</p>
-              )}
-
-              <button
-                className={`btn btn-${tradeMode}`}
-                onClick={handleTrade}
-                disabled={trading || !amount || !quote || contractMissing}
-                style={{ opacity: (trading || !amount || !quote || contractMissing) ? 0.6 : 1, cursor: (trading || !amount || !quote || contractMissing) ? 'not-allowed' : 'pointer' }}
-              >
-                {trading
-                  ? 'Working…'
-                  : tradeMode === 'buy'
-                    ? `Buy ${token.ticker}`
-                    : `Sell ${token.ticker}`}
-              </button>
-              <div style={{ textAlign:'center', fontFamily:'var(--font-mono)', fontSize:10, color:'var(--text-muted)', marginTop:8 }}>Non-custodial · ZK-protected · {MIDNIGHT_NETWORK_CAPTION}</div>
-=======
           {/* Position summary */}
           <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)' }}>
             <div className="section-title" style={{ marginBottom: 8 }}>Your Position</div>
@@ -640,7 +423,6 @@ export default function TokenPage() {
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>{v}</div>
                 </div>
               ))}
->>>>>>> 27ae2c7 (feat: Cryptographic Noir UI redesign)
             </div>
           </div>
 
