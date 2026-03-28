@@ -2,7 +2,35 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Navbar from '@/components/Navbar';
-import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, spotPrice, timeAgo } from '@/lib/midnight/bondingCurve';
+import { getBuyQuote, getSellQuote, bondingProgress, fmtDust, fmtTokens, fmtMcap, GRADUATION_TARGET, spotPrice } from '@/lib/midnight/bondingCurve';
+
+function timeAgo(ts: number) {
+  const d = Math.floor(Date.now() / 1000) - ts;
+  if (d < 60) return `${d}s`;
+  if (d < 3600) return `${Math.floor(d / 60)}m`;
+  if (d < 86400) return `${Math.floor(d / 3600)}h`;
+  return `${Math.floor(d / 86400)}d`;
+}
+
+const TF = ['1m','5m','15m','1h','4h','1d'];
+const TICKER_ITEMS = ['BUY','SELL','BUY','BUY','SELL','BUY','BUY','SELL','BUY','BUY'];
+
+function TokenAvatar({ token, size = 32 }: { token: any; size?: number }) {
+  const [err, setErr] = useState(false);
+  const initials = (token.ticker || token.name || '?').slice(0, 2).toUpperCase();
+  if (!err && token.imageUri && token.imageUri !== 'ipfs://') {
+    return (
+      <div className="token-avatar" style={{ width: size, height: size }}>
+        <img src={token.imageUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} alt={token.name} onError={() => setErr(true)} />
+      </div>
+    );
+  }
+  return (
+    <div className="token-avatar" style={{ width: size, height: size }}>
+      <div className="token-avatar-placeholder" style={{ fontSize: size * 0.28, letterSpacing: '-0.5px' }}>{initials}</div>
+    </div>
+  );
+}
 
 export default function TokenPage() {
   const { address } = useParams<{ address: string }>();
@@ -10,85 +38,74 @@ export default function TokenPage() {
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [amount, setAmount] = useState('');
   const [activeTab, setActiveTab] = useState('trades');
+  const [activeTf, setActiveTf] = useState('5m');
+  const [preset, setPreset] = useState('');
   const chartRef = useRef<HTMLDivElement>(null);
-  const chartInstance = useRef<any>(null);
 
   useEffect(() => {
     fetch('/api/tokens?limit=100')
       .then(r => r.json())
       .then(({ tokens }) => {
         const found = tokens?.find((t: any) => t.address === address);
-        setToken(found ?? {
-          address, name: address?.slice(0, 8) + '…', ticker: 'UNK',
-          description: '', adaReserve: '0', tokenReserve: '999000000000000',
-          totalVolume: '0', txCount: 0, holderCount: 1, graduated: false, lockedPercent: 0,
-        });
+        setToken(found ?? { address, name: address?.slice(0,8)+'…', ticker: 'UNK', description: '', adaReserve: '0', tokenReserve: '999000000000000', totalVolume: '0', txCount: 0, holderCount: 1, graduated: false });
       });
   }, [address]);
 
   useEffect(() => {
-    if (!chartRef.current) return;
+    if (!chartRef.current || !token) return;
     let chart: any;
     import('lightweight-charts').then(({ createChart, ColorType, LineStyle }) => {
-      chart = createChart(chartRef.current!, {
-        width: chartRef.current!.clientWidth,
-        height: chartRef.current!.clientHeight || 280,
-        layout: {
-          background: { type: ColorType.Solid, color: 'transparent' },
-          textColor: 'rgba(255,255,255,0.3)',
-        },
-        grid: {
-          vertLines: { color: 'rgba(255,255,255,0.03)', style: LineStyle.Dotted },
-          horzLines: { color: 'rgba(255,255,255,0.03)', style: LineStyle.Dotted },
-        },
-        crosshair: { vertLine: { color: '#00E5A0' }, horzLine: { color: '#00E5A0' } },
-        rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)' },
-        timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true },
+      if (!chartRef.current) return;
+      chart = createChart(chartRef.current, {
+        width: chartRef.current.clientWidth,
+        height: chartRef.current.clientHeight || 260,
+        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: 'rgba(255,255,255,0.25)' },
+        grid: { vertLines: { color: 'rgba(255,255,255,0.03)', style: LineStyle.Dotted }, horzLines: { color: 'rgba(255,255,255,0.03)', style: LineStyle.Dotted } },
+        crosshair: { vertLine: { color: '#00D1A7', width: 1 }, horzLine: { color: '#00D1A7', width: 1 } },
+        rightPriceScale: { borderColor: 'rgba(255,255,255,0.05)' },
+        timeScale: { borderColor: 'rgba(255,255,255,0.05)', timeVisible: true },
+        handleScroll: true, handleScale: true,
       });
-      const series = chart.addAreaSeries({
-        lineColor: '#00E5A0',
-        topColor: 'rgba(0,229,160,0.18)',
-        bottomColor: 'rgba(0,229,160,0.0)',
-        lineWidth: 2,
-      });
+      const area = chart.addAreaSeries({ lineColor: '#00D1A7', topColor: 'rgba(0,209,167,0.12)', bottomColor: 'rgba(0,209,167,0)', lineWidth: 1 });
       const now = Math.floor(Date.now() / 1000);
-      const data = Array.from({ length: 60 }, (_, i) => ({
-        time: (now - (60 - i) * 300) as any,
-        value: 0.000001 * (1 + Math.random() * 0.4 + i * 0.025),
-      }));
-      series.setData(data);
+      let v = 0.000001;
+      const data = Array.from({ length: 120 }, (_, i) => {
+        v *= (1 + (Math.random() - 0.46) * 0.04);
+        return { time: (now - (120 - i) * 300) as any, value: Math.max(v, 0.0000001) };
+      });
+      area.setData(data);
       chart.timeScale().fitContent();
-      chartInstance.current = chart;
     });
     return () => { chart?.remove(); };
   }, [token]);
 
-  const ada = token ? BigInt(token.adaReserve ?? '0') : 0n;
-  const tok = token ? BigInt(token.tokenReserve ?? '999000000000000') : 999000000000000n;
-  const adaIn = amount ? BigInt(Math.floor(parseFloat(amount) * 1_000_000)) : 0n;
-  const tokensIn = amount ? BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000)) : 0n;
-  const quote = tradeMode === 'buy' && adaIn > 0n ? getBuyQuote(adaIn, ada, tok)
-    : tradeMode === 'sell' && tokensIn > 0n ? getSellQuote(tokensIn, ada, tok)
-    : null;
-  const progress = bondingProgress(ada);
-  const addr = (token?.address ?? address ?? '') as string;
-
-  const mockTrades = Array.from({ length: 8 }, (_, i) => ({
-    type: i % 3 === 0 ? 'sell' : 'buy',
-    wallet: '0x' + Math.random().toString(16).slice(2, 10) + '…',
-    dust: (Math.random() * 500 + 10).toFixed(1),
-    tokens: (Math.random() * 50000 + 1000).toFixed(0),
-    age: `${Math.floor(Math.random() * 59) + 1}m`,
-  }));
-
   if (!token) return (
     <div style={{ minHeight: '100vh' }}>
       <Navbar />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 80px)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-        Loading…
-      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 44px)', color: 'var(--t3)', fontFamily: 'var(--mono)', fontSize: 11 }}>Loading…</div>
     </div>
   );
+
+  const ada  = BigInt(token.adaReserve   ?? '0');
+  const tok  = BigInt(token.tokenReserve ?? '999000000000000');
+  const prog = bondingProgress(ada);
+  const addr = (token.address ?? address ?? '') as string;
+  const adaIn   = amount && tradeMode === 'buy'  ? BigInt(Math.floor(parseFloat(amount) * 1_000_000)) : 0n;
+  const tokensIn = amount && tradeMode === 'sell' ? BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000)) : 0n;
+  const quote = tradeMode === 'buy' && adaIn > 0n ? getBuyQuote(adaIn, ada, tok)
+    : tradeMode === 'sell' && tokensIn > 0n ? getSellQuote(tokensIn, ada, tok)
+    : null;
+
+  const mockTrades = Array.from({ length: 12 }, (_, i) => ({
+    type: TICKER_ITEMS[i % TICKER_ITEMS.length] === 'BUY' ? 'buy' : 'sell',
+    wallet: addr.slice(0,4) + '…' + Math.random().toString(16).slice(2,6),
+    dust: (Math.random() * 800 + 20).toFixed(1),
+    tokens: Math.floor(Math.random() * 500000 + 5000),
+    age: `${Math.floor(Math.random() * 59) + 1}m`,
+  }));
+
+  const BUY_PRESETS = ['25', '100', '250', '500'];
+  const SELL_PRESETS = ['25%', '50%', '75%', '100%'];
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -97,197 +114,155 @@ export default function TokenPage() {
       {/* Ticker strip */}
       <div className="ticker-strip">
         <div className="ticker-scroll">
-          {[...Array(16)].map((_, i) => (
-            <div key={i} className="ticker-item">
-              <span style={{ color: 'var(--text-dim)', fontSize: 8 }}>●</span>
-              <span style={{ fontWeight: 600 }}>{token.ticker ?? 'TKN'}</span>
-              <span className={i % 3 === 0 ? 'down' : 'up'}>{i % 3 === 0 ? '-' : '+'}{(Math.random() * 20 + 1).toFixed(1)}%</span>
-            </div>
-          ))}
+          {[...Array(24)].map((_, i) => {
+            const isBuy = TICKER_ITEMS[i % TICKER_ITEMS.length] === 'BUY';
+            return (
+              <div key={i} className="ticker-item">
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: isBuy ? 'var(--green)' : 'var(--red)', display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ color: 'var(--t2)', fontWeight: 600 }}>{token.ticker}</span>
+                <span className={isBuy ? 'up' : 'dn'}>{isBuy ? '+' : '-'}{(Math.random() * 15 + 1).toFixed(1)}%</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Main 2-col layout */}
       <div className="token-page">
 
         {/* ── LEFT / CENTER ── */}
         <div className="token-main">
 
-          {/* Token header bar */}
-          <div style={{
-            padding: '10px 14px',
-            borderBottom: '1px solid var(--border-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            flexWrap: 'wrap',
-          }}>
-            <div className="token-avatar" style={{ width: 36, height: 36, fontSize: 16 }}>
-              {token.imageUri && token.imageUri !== 'ipfs://'
-                ? <img src={token.imageUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')} alt={token.name} onError={e => { (e.target as any).parentElement.innerHTML = '🌙'; }} />
-                : '🌙'}
-            </div>
+          {/* Token header */}
+          <div className="token-header">
+            <TokenAvatar token={token} size={30} />
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 800 }}>{token.name}</span>
-                <span className="badge badge-violet">${token.ticker}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{token.name}</span>
+                <span className="badge badge-white">${token.ticker}</span>
                 {token.graduated && <span className="badge badge-green">GRADUATED</span>}
-                {token.lockedPercent > 0 && <span className="badge badge-amber">🔒 {token.lockedPercent}% locked</span>}
               </div>
-              <div style={{ display: 'flex', gap: 4, marginTop: 3 }}>
-                <span className="addr">{addr.slice(0, 8)}…{addr.slice(-6)}</span>
-                {token.website  && <a href={token.website}  target="_blank" rel="noopener" className="badge" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>🌐</a>}
-                {token.twitter  && <a href={token.twitter}  target="_blank" rel="noopener" className="badge" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>𝕏</a>}
-                {token.telegram && <a href={token.telegram} target="_blank" rel="noopener" className="badge" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>✈️</a>}
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <span style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--t3)' }}>{addr.slice(0,8)}…{addr.slice(-6)}</span>
+                <button onClick={() => navigator.clipboard?.writeText(addr)} style={{ background:'none',border:'none',cursor:'pointer',padding:0,display:'flex',alignItems:'center' }}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color: 'var(--t3)' }}><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                </button>
+                {token.website  && <a href={token.website}  target="_blank" rel="noopener" style={{ color:'var(--t3)',fontSize:9,border:'1px solid var(--b1)',borderRadius:3,padding:'1px 5px',fontFamily:'var(--mono)' }}>web</a>}
+                {token.twitter  && <a href={token.twitter}  target="_blank" rel="noopener" style={{ color:'var(--t3)',fontSize:9,border:'1px solid var(--b1)',borderRadius:3,padding:'1px 5px',fontFamily:'var(--mono)' }}>x</a>}
+                {token.telegram && <a href={token.telegram} target="_blank" rel="noopener" style={{ color:'var(--t3)',fontSize:9,border:'1px solid var(--b1)',borderRadius:3,padding:'1px 5px',fontFamily:'var(--mono)' }}>tg</a>}
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 16, marginLeft: 'auto', flexWrap: 'wrap' }}>
-              {[
-                ['MCAP',    fmtMcap(ada),                            'var(--teal)'],
-                ['PRICE',   '₾' + fmtDust(spotPrice(ada, tok), 6), null],
-                ['VOL',     '₾' + fmtDust(BigInt(token.totalVolume ?? '0'), 0), null],
-                ['HOLDERS', token.holderCount,                       null],
-                ['TXNS',    token.txCount,                           null],
-              ].map(([l, v, c]: any) => (
-                <div key={l}>
+            <div style={{ display:'flex', alignItems:'center', marginLeft:'auto', flexWrap:'wrap', gap: '0 1px' }}>
+              {([
+                ['MCAP',    fmtMcap(ada),                             ada > 0n ? 'var(--green)' : 'var(--t2)'],
+                ['PRICE',   fmtDust(spotPrice(ada, tok), 6) + ' D',  'var(--t1)'],
+                ['VOL',     fmtDust(BigInt(token.totalVolume??'0'),0),'var(--t2)'],
+                ['TXNS',    String(token.txCount ?? 0),               'var(--t2)'],
+                ['HOLDERS', String(token.holderCount ?? 1),           'var(--t2)'],
+              ] as [string, string, string][]).map(([l, v, c]) => (
+                <div key={l} style={{ padding: '0 14px', borderRight: '1px solid var(--b0)' }}>
                   <div className="stat-label">{l}</div>
-                  <div className="stat-value" style={{ fontSize: 13, color: c ?? 'var(--text-primary)' }}>{v}</div>
+                  <div style={{ fontFamily:'var(--mono)', fontSize:12, fontWeight:600, color:c, marginTop:1 }}>{v}</div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Chart area */}
-          <div style={{
-            background: 'var(--bg-base)',
-            borderBottom: '1px solid var(--border-subtle)',
-            padding: '8px 0 0',
-            flex: '0 0 300px',
-            position: 'relative',
-          }}>
-            {/* Timeframe buttons */}
-            <div style={{ display: 'flex', gap: 2, padding: '0 10px 6px', alignItems: 'center' }}>
-              {['1m','5m','15m','1h','4h','1d'].map(t => (
-                <button key={t} style={{
-                  padding: '2px 8px', border: 'none',
-                  background: t === '5m' ? 'var(--bg-elevated)' : 'transparent',
-                  color: t === '5m' ? 'var(--text-primary)' : 'var(--text-muted)',
-                  borderRadius: 4, fontSize: 11, cursor: 'pointer',
-                  fontFamily: 'var(--font-mono)',
-                }}>{t}</button>
-              ))}
-              <div style={{ flex: 1 }} />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)' }}>
-                {token.name}/{token.ticker} · night.fun
-              </span>
-            </div>
-            <div ref={chartRef} style={{ height: 260, padding: '0 0 0 0' }} />
-          </div>
-
-          {/* Bonding curve */}
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div>
-                <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600 }}>Bonding Curve</span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-secondary)', marginLeft: 10 }}>
-                  ₾{fmtDust(ada)} / ₾{fmtDust(GRADUATION_TARGET)} to graduate
-                </span>
+              {/* Progress inline */}
+              <div style={{ padding: '0 14px' }}>
+                <div className="stat-label">CURVE</div>
+                <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:2 }}>
+                  <div style={{ width:60, height:3, background:'var(--bg-4)', borderRadius:2, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${prog}%`, background:prog>80?'var(--green)':prog>50?'var(--amber)':'var(--t4)', borderRadius:2 }} />
+                  </div>
+                  <span style={{ fontFamily:'var(--mono)', fontSize:10, color:prog>80?'var(--green)':'var(--t3)' }}>{prog}%</span>
+                </div>
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 20, fontWeight: 700, color: progress > 80 ? 'var(--green)' : 'var(--teal)' }}>
-                {progress}%
-              </span>
             </div>
-            <div className="progress-track" style={{ height: 6 }}>
-              <div className="progress-fill" style={{ width: `${progress}%` }} />
-            </div>
-            {progress >= 100 && (
-              <div style={{ marginTop: 8 }} className="badge badge-green">🎓 Graduated — listing on NorthStar DEX</div>
-            )}
           </div>
 
-          {/* Bottom data tables */}
-          <div style={{ flex: 1 }}>
-            {/* Tabs */}
-            <div style={{
-              display: 'flex', borderBottom: '1px solid var(--border-subtle)',
-              padding: '0 4px',
-            }}>
-              {[
-                { id: 'trades', label: `Trades (${token.txCount ?? 0})` },
-                { id: 'holders', label: `Holders (${token.holderCount ?? 1})` },
-                { id: 'info', label: 'Token Info' },
-              ].map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-                  padding: '8px 12px',
-                  border: 'none', background: 'transparent',
-                  color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-muted)',
-                  fontSize: 11, fontWeight: 500, cursor: 'pointer',
-                  borderBottom: activeTab === tab.id ? '2px solid var(--teal)' : '2px solid transparent',
-                  transition: 'all 0.12s',
-                  fontFamily: 'var(--font-body)',
-                }}>
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+          {/* Chart toolbar */}
+          <div className="chart-toolbar">
+            {TF.map(t => (
+              <button key={t} className={`tf-btn ${activeTf === t ? 'active' : ''}`} onClick={() => setActiveTf(t)}>{t}</button>
+            ))}
+            <div style={{ flex:1 }} />
+            <span style={{ fontFamily:'var(--mono)', fontSize:9, color:'var(--t3)' }}>
+              {token.name}/{token.ticker} · night.fun
+            </span>
+          </div>
 
-            {/* Trades table */}
+          {/* Chart */}
+          <div style={{ background:'var(--bg)', flex:'0 0 260px', position:'relative' }}>
+            <div ref={chartRef} style={{ height:'100%' }} />
+          </div>
+
+          {/* Bonding curve bar */}
+          <div style={{ padding:'8px 12px', borderTop:'1px solid var(--b0)', borderBottom:'1px solid var(--b0)', display:'flex', alignItems:'center', gap:12, background:'var(--bg-1)', flexShrink:0 }}>
+            <span style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--t3)', whiteSpace:'nowrap' }}>Bonding curve</span>
+            <div style={{ flex:1, height:3, background:'var(--bg-4)', borderRadius:2, overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${prog}%`, background:prog>80?'var(--green)':prog>50?'var(--amber)':'var(--t4)', borderRadius:2, transition:'width .5s ease' }} />
+            </div>
+            <span style={{ fontFamily:'var(--mono)', fontSize:10, color:prog>80?'var(--green)':'var(--t2)', whiteSpace:'nowrap' }}>
+              {fmtDust(ada)} / {fmtDust(GRADUATION_TARGET)} DUST ({prog}%)
+            </span>
+            {prog >= 100 && <span className="badge badge-green">GRADUATED</span>}
+          </div>
+
+          {/* Bottom tabs */}
+          <div style={{ borderBottom:'1px solid var(--b0)', display:'flex', background:'var(--bg-1)', flexShrink:0 }}>
+            {[['trades',`Trades (${token.txCount??0})`],['holders',`Holders (${token.holderCount??1})`],['info','Token info']].map(([id,label]) => (
+              <button key={id} onClick={() => setActiveTab(id)} style={{
+                padding:'7px 12px', border:'none', background:'transparent',
+                color: activeTab===id ? 'var(--t1)' : 'var(--t3)',
+                fontSize:11, fontWeight:500, cursor:'pointer',
+                borderBottom: `2px solid ${activeTab===id ? 'var(--green)' : 'transparent'}`,
+                transition:'all 0.1s', fontFamily:'var(--font)',
+              }}>{label}</button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          <div style={{ flex:1, overflowY:'auto' }}>
             {activeTab === 'trades' && (
-              <div style={{ overflowX: 'auto' }}>
+              <>
                 <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Wallet</th>
-                      <th>DUST</th>
-                      <th>Tokens</th>
-                      <th>Age</th>
-                    </tr>
-                  </thead>
+                  <thead><tr>
+                    <th>Type</th><th>Wallet</th><th>DUST</th><th>Tokens</th><th>Age</th><th>Tx</th>
+                  </tr></thead>
                   <tbody>
                     {mockTrades.map((tx, i) => (
                       <tr key={i}>
-                        <td>
-                          <span style={{ color: tx.type === 'buy' ? 'var(--green)' : 'var(--red)', fontWeight: 600 }}>
-                            {tx.type.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="addr">{tx.wallet}</td>
-                        <td>₾{tx.dust}</td>
-                        <td>{Number(tx.tokens).toLocaleString()}</td>
-                        <td style={{ color: 'var(--text-muted)' }}>{tx.age}</td>
+                        <td><span style={{ color: tx.type==='buy'?'var(--green)':'var(--red)', fontWeight:600 }}>{tx.type.toUpperCase()}</span></td>
+                        <td style={{ fontFamily:'var(--mono)', fontSize:10 }}>{tx.wallet}</td>
+                        <td>{tx.dust}</td>
+                        <td>{tx.tokens.toLocaleString()}</td>
+                        <td style={{ color:'var(--t3)' }}>{tx.age}</td>
+                        <td><span style={{ fontFamily:'var(--mono)',fontSize:9,color:'var(--t3)' }}>—</span></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <div style={{ textAlign: 'center', padding: '14px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
-                  Real trade history coming soon — indexer integration in progress
+                <div style={{ textAlign:'center', padding:14, fontFamily:'var(--mono)', fontSize:10, color:'var(--t4)' }}>
+                  Live trade history — indexer integration in progress
                 </div>
-              </div>
+              </>
             )}
-
-            {/* Holders */}
             {activeTab === 'holders' && (
-              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+              <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:120,fontFamily:'var(--mono)',fontSize:10,color:'var(--t4)' }}>
                 Holder tracking — indexer integration in progress
               </div>
             )}
-
-            {/* Token info */}
             {activeTab === 'info' && (
-              <div style={{ padding: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ padding:14, display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                 {[
-                  ['Contract', addr.slice(0, 12) + '…'],
-                  ['Network', 'Midnight Preprod'],
-                  ['Curve Target', '₾69,000 DUST'],
-                  ['Token Supply', '999T'],
-                  ['Creator', token.creatorAddr ? token.creatorAddr.slice(0, 12) + '…' : '—'],
-                  ['Deployed', token.deployedAt ? new Date(token.deployedAt * 1000).toLocaleDateString() : '—'],
-                ].map(([l, v]) => (
-                  <div key={l} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 6, padding: '8px 10px' }}>
-                    <div className="stat-label" style={{ marginBottom: 3 }}>{l}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-primary)' }}>{v}</div>
+                  ['Contract', addr.slice(0,14)+'…'],
+                  ['Network', 'Midnight ' + (process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preprod')],
+                  ['Supply', '1,000,000,000'],
+                  ['Target', '69,000 DUST'],
+                  ['Deployed', token.deployedAt ? new Date(token.deployedAt*1000).toLocaleDateString() : '—'],
+                  ['Creator', token.creatorAddr ? token.creatorAddr.slice(0,12)+'…' : '—'],
+                ].map(([l,v]) => (
+                  <div key={l} style={{ background:'var(--bg-2)', border:'1px solid var(--b0)', borderRadius:5, padding:'7px 9px' }}>
+                    <div className="stat-label" style={{ marginBottom:2 }}>{l}</div>
+                    <div style={{ fontFamily:'var(--mono)', fontSize:10, color:'var(--t1)' }}>{v}</div>
                   </div>
                 ))}
               </div>
@@ -298,72 +273,54 @@ export default function TokenPage() {
         {/* ── RIGHT SIDEBAR ── */}
         <div className="token-sidebar">
 
-          {/* Buy / Sell panel */}
-          <div style={{ padding: 12, borderBottom: '1px solid var(--border-subtle)' }}>
+          {/* Trade tabs */}
+          <div className="trade-tabs">
+            <button className={`trade-tab ${tradeMode==='buy'?'buy-active':''}`} onClick={() => { setTradeMode('buy'); setAmount(''); setPreset(''); }}>Buy</button>
+            <button className={`trade-tab ${tradeMode==='sell'?'sell-active':''}`} onClick={() => { setTradeMode('sell'); setAmount(''); setPreset(''); }}>Sell</button>
+          </div>
 
-            {/* Mode tabs */}
-            <div className="tab-row" style={{ marginBottom: 10 }}>
-              <button
-                className={`btn-tab ${tradeMode === 'buy' ? 'tab-buy' : ''}`}
-                onClick={() => { setTradeMode('buy'); setAmount(''); }}
-              >Buy</button>
-              <button
-                className={`btn-tab ${tradeMode === 'sell' ? 'tab-sell' : ''}`}
-                onClick={() => { setTradeMode('sell'); setAmount(''); }}
-              >Sell</button>
-            </div>
+          <div style={{ padding: 12, display:'flex', flexDirection:'column', gap:10 }}>
 
             {/* Amount input */}
-            <div style={{ position: 'relative', marginBottom: 8 }}>
-              <input
-                className="amount-input"
-                type="number"
-                min="0"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                placeholder="0"
-              />
-              <span style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)',
-              }}>
-                {tradeMode === 'buy' ? 'DUST' : token.ticker}
-              </span>
+            <div>
+              <div style={{ fontFamily:'var(--mono)', fontSize:9, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.07em', marginBottom:5 }}>Amount</div>
+              <div className="amount-wrap">
+                <input
+                  className="amount-input"
+                  type="number" min="0"
+                  value={amount}
+                  onChange={e => { setAmount(e.target.value); setPreset(''); }}
+                  placeholder="0"
+                />
+                <div className="amount-unit">{tradeMode==='buy' ? 'DUST' : token.ticker}</div>
+              </div>
             </div>
 
-            {/* Preset amounts */}
-            <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
-              {(tradeMode === 'buy' ? ['25', '100', '250', '500'] : ['25%', '50%', '75%', '100%']).map(p => (
-                <button key={p} className="preset-btn" onClick={() => setAmount(tradeMode === 'buy' ? p : p.replace('%', ''))}>
-                  {tradeMode === 'buy' ? `₾${p}` : p}
+            {/* Presets */}
+            <div className="preset-grid">
+              {(tradeMode==='buy' ? BUY_PRESETS : SELL_PRESETS).map(p => (
+                <button
+                  key={p}
+                  className={`preset-btn ${preset===p?'active':''}`}
+                  onClick={() => { setPreset(p); setAmount(tradeMode==='buy' ? p : p.replace('%','')); }}
+                >
+                  {tradeMode==='buy' ? p : p}
                 </button>
               ))}
             </div>
 
-            {/* Quote preview */}
+            {/* Quote */}
             {quote && (
-              <div style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 7,
-                padding: '10px 11px',
-                marginBottom: 10,
-              }}>
-                <div className="stat-label" style={{ marginBottom: 5 }}>You receive</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 18, fontWeight: 600 }}>
-                    {tradeMode === 'buy' ? fmtTokens(quote.amountOut) : fmtDust(quote.amountOut)}
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
-                    {tradeMode === 'buy' ? token.ticker : 'DUST'}
+              <div style={{ background:'var(--bg-2)', border:'1px solid var(--b0)', borderRadius:5, padding:'9px 10px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                  <span style={{ fontFamily:'var(--mono)', fontSize:9, color:'var(--t3)', textTransform:'uppercase' }}>You receive</span>
+                  <span style={{ fontFamily:'var(--mono)', fontSize:12, fontWeight:600, color:'var(--t1)' }}>
+                    {tradeMode==='buy' ? fmtTokens(quote.amountOut) : fmtDust(quote.amountOut)} {tradeMode==='buy' ? token.ticker : 'DUST'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                  <span className="stat-label">Price impact</span>
-                  <span style={{
-                    fontFamily: 'var(--font-mono)', fontSize: 11,
-                    color: quote.priceImpact > 5 ? 'var(--red)' : 'var(--green)',
-                  }}>
+                <div style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontFamily:'var(--mono)', fontSize:9, color:'var(--t3)', textTransform:'uppercase' }}>Price impact</span>
+                  <span style={{ fontFamily:'var(--mono)', fontSize:11, color: quote.priceImpact>5?'var(--red)':'var(--green)' }}>
                     {quote.priceImpact.toFixed(2)}%
                   </span>
                 </div>
@@ -371,114 +328,92 @@ export default function TokenPage() {
             )}
 
             {/* Action button */}
-            <button
-              className={tradeMode === 'buy' ? 'btn-buy' : 'btn-sell'}
-              onClick={async () => {
-                if (!amount || parseFloat(amount) <= 0) { alert('Enter an amount first'); return; }
+            {tradeMode === 'buy' ? (
+              <button className="btn-buy" onClick={async () => {
+                if (!amount || parseFloat(amount) <= 0) { alert('Enter an amount'); return; }
                 try {
-                  const adaInAmt = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
-                  const tokensInAmt = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000));
-                  if (tradeMode === 'buy') {
-                    const q = getBuyQuote(adaInAmt, ada, tok);
-                    const minTokens = q.amountOut * 95n / 100n;
-                    const { submitBuyTx } = await import('@/lib/trading');
-                    const result = await submitBuyTx({ contractAddress: address as string, adaIn: adaInAmt, tokensOut: minTokens });
-                    alert('Buy submitted! Tx: ' + result.txId);
-                  } else {
-                    const q = getSellQuote(tokensInAmt, ada, tok);
-                    const minAda = q.amountOut * 95n / 100n;
-                    const { submitSellTx } = await import('@/lib/trading');
-                    const result = await submitSellTx({ contractAddress: address as string, tokensIn: tokensInAmt, adaOut: minAda });
-                    alert('Sell submitted! Tx: ' + result.txId);
-                  }
-                } catch (err: any) {
-                  alert('Trade failed: ' + err.message);
-                }
-              }}
-            >
-              {tradeMode === 'buy' ? `🟢 Buy ${token.ticker}` : `🔴 Sell ${token.ticker}`}
-            </button>
+                  const { submitBuyTx } = await import('@/lib/trading');
+                  const adaAmt = BigInt(Math.floor(parseFloat(amount) * 1_000_000));
+                  const q = getBuyQuote(adaAmt, ada, tok);
+                  const result = await submitBuyTx({ contractAddress: address as string, adaIn: adaAmt, tokensOut: q.amountOut * 95n / 100n });
+                  alert('Buy submitted! Tx: ' + result.txId);
+                } catch (err: any) { alert('Trade failed: ' + err.message); }
+              }}>
+                Buy {token.ticker}
+              </button>
+            ) : (
+              <button className="btn-sell" onClick={async () => {
+                if (!amount || parseFloat(amount) <= 0) { alert('Enter an amount'); return; }
+                try {
+                  const { submitSellTx } = await import('@/lib/trading');
+                  const tokAmt = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000_000));
+                  const q = getSellQuote(tokAmt, ada, tok);
+                  const result = await submitSellTx({ contractAddress: address as string, tokensIn: tokAmt, adaOut: q.amountOut * 95n / 100n });
+                  alert('Sell submitted! Tx: ' + result.txId);
+                } catch (err: any) { alert('Trade failed: ' + err.message); }
+              }}>
+                Sell {token.ticker}
+              </button>
+            )}
 
-            {/* Footer */}
-            <div style={{ textAlign: 'center', marginTop: 8 }}>
-              <span className="badge badge-teal">ZK</span>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginLeft: 6 }}>
-                Non-custodial · Midnight {process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preprod'}
+            {/* ZK note */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+              <span className="badge badge-green">ZK</span>
+              <span style={{ fontFamily:'var(--mono)', fontSize:9, color:'var(--t3)' }}>
+                Non-custodial · {process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preprod'}
               </span>
             </div>
           </div>
 
-          {/* Position summary */}
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <div className="section-title" style={{ marginBottom: 8 }}>Your Position</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {[
-                ['Bought', '₾0'],
-                ['Sold', '₾0'],
-                ['Holding', '0 ' + token.ticker],
-                ['PnL', '+0%'],
-              ].map(([l, v]) => (
-                <div key={l} style={{ background: 'var(--bg-elevated)', borderRadius: 6, padding: '7px 9px' }}>
-                  <div className="stat-label" style={{ marginBottom: 2 }}>{l}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>{v}</div>
+          <div className="divider" />
+
+          {/* Position */}
+          <div style={{ padding:'10px 12px' }}>
+            <div className="section-title" style={{ marginBottom:8 }}>Your Position</div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+              {[['Bought','0 DUST'],['Sold','0 DUST'],['Holding','0 '+token.ticker],['PnL','+0%']].map(([l,v]) => (
+                <div key={l} style={{ background:'var(--bg-2)', borderRadius:5, padding:'6px 8px' }}>
+                  <div className="stat-label" style={{ marginBottom:2 }}>{l}</div>
+                  <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--t2)' }}>{v}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Token info panel */}
-          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border-subtle)' }}>
-            <div className="section-title" style={{ marginBottom: 10 }}>Token Info</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {[
-                ['Top 10 H.', '—', 'var(--text-secondary)'],
-                ['Dev Holdings', '0%', 'var(--green)'],
-                ['LP Burned', '—', 'var(--text-secondary)'],
-                ['Holders', String(token.holderCount ?? 1), 'var(--text-secondary)'],
-              ].map(([l, v, c]) => (
-                <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span className="stat-label">{l}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: c }}>{v}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <div className="divider" />
 
-          {/* Contract address */}
-          <div style={{ padding: '10px 12px' }}>
-            <div className="section-title" style={{ marginBottom: 8 }}>Contract</div>
-            <div style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 6,
-              padding: '8px 10px',
-            }}>
-              <div className="stat-label" style={{ marginBottom: 3 }}>CA</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', wordBreak: 'break-all' }}>
-                {addr}
+          {/* Token info */}
+          <div style={{ padding:'10px 12px' }}>
+            <div className="section-title" style={{ marginBottom:8 }}>Token Info</div>
+            {[
+              ['Dev holdings', '0%', 'var(--green)'],
+              ['Holders', String(token.holderCount??1), 'var(--t2)'],
+              ['Total txns', String(token.txCount??0), 'var(--t2)'],
+              ['Curve target', '69,000 DUST', 'var(--t2)'],
+            ].map(([l,v,c]) => (
+              <div key={l} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'4px 0', borderBottom:'1px solid var(--b0)' }}>
+                <span style={{ fontFamily:'var(--mono)', fontSize:9, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.06em' }}>{l}</span>
+                <span style={{ fontFamily:'var(--mono)', fontSize:11, fontWeight:600, color:c }}>{v}</span>
               </div>
-              <button
-                onClick={() => navigator.clipboard?.writeText(addr)}
-                style={{
-                  marginTop: 6,
-                  padding: '3px 8px',
-                  background: 'var(--bg-hover)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 4,
-                  fontSize: 10,
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-mono)',
-                }}
-              >
-                Copy
-              </button>
-            </div>
+            ))}
+          </div>
 
+          <div className="divider" />
+
+          {/* Contract */}
+          <div style={{ padding:'10px 12px' }}>
+            <div className="section-title" style={{ marginBottom:8 }}>Contract</div>
+            <div style={{ fontFamily:'var(--mono)', fontSize:9.5, color:'var(--t3)', wordBreak:'break-all', lineHeight:1.6 }}>{addr}</div>
+            <button
+              onClick={() => navigator.clipboard?.writeText(addr)}
+              style={{ marginTop:6, padding:'3px 9px', background:'var(--bg-3)', border:'1px solid var(--b1)', borderRadius:4, fontSize:10, color:'var(--t3)', cursor:'pointer', fontFamily:'var(--mono)', transition:'all 0.1s' }}
+            >
+              Copy address
+            </button>
             {token.description && (
-              <div style={{ marginTop: 10, padding: '8px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 6 }}>
-                <div className="stat-label" style={{ marginBottom: 4 }}>Description</div>
-                <p style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{token.description}</p>
+              <div style={{ marginTop:10 }}>
+                <div className="section-title" style={{ marginBottom:5 }}>Description</div>
+                <p style={{ fontSize:11, color:'var(--t2)', lineHeight:1.5 }}>{token.description}</p>
               </div>
             )}
           </div>
