@@ -390,3 +390,36 @@ input::placeholder, textarea::placeholder { color: var(--t4); }
   .token-sidebar { border-left: none; border-top: 1px solid var(--b1); height: auto; }
 }
 
+
+/* ── ZK Overlay spinner / progress ── */
+.zk-spinner {
+  width: 40px; height: 40px;
+  border: 2px solid rgba(255,255,255,0.08);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: zk-spin 0.8s linear infinite;
+}
+@keyframes zk-spin { to { transform: rotate(360deg); } }
+
+.zk-progress-track {
+  height: 2px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+  width: 100%;
+}
+.zk-progress-indeterminate {
+  height: 100%;
+  width: 40%;
+  background: var(--green);
+  border-radius: 2px;
+  animation: zk-slide 1.4s ease-in-out infinite;
+}
+@keyframes zk-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+/* ── Missing compat vars ── */
+.btn-buy:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-sell:disabled { opacity: 0.4; cursor: not-allowed; }
