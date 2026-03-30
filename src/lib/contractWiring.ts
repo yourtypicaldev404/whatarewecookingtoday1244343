@@ -301,7 +301,7 @@ function tradeBuildErrorMessage(status: number, body: string): string {
   }
   if (!generic && /no public state found at contract address/i.test(t)) {
     return (
-      'Contract not found on the indexer. Verify Lace, Vercel, and Railway all use the same network. ' +
+      'Contract not found on the indexer. Verify your wallet, Vercel, and Railway all use the same network. ' +
       'If this is a freshly deployed token, wait 30\u201360 s for the indexer to catch up and try again. ' +
       'On testnets this can also mean the network was reset after deployment. ' +
       t

@@ -29,7 +29,7 @@ function timeAgo(ts: number) {
   return `${Math.floor(d / 86400)}d`;
 }
 
-function TokenAvatar({ token, size = 44 }: { token: Token; size?: number }) {
+function TokenAvatar({ token, size = 57 }: { token: Token; size?: number }) {
   const [err, setErr] = useState(false);
   const initials = (token.ticker || token.name || '?').slice(0, 2).toUpperCase();
   if (!err && token.imageUri && token.imageUri !== 'ipfs://') {
@@ -56,50 +56,50 @@ function TokenCard({ token }: { token: Token }) {
     <Link href={`/token/${token.address}`} style={{ textDecoration: 'none' }}>
       <div className="mosaic-card">
         {/* Avatar + mcap */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-          <TokenAvatar token={token} size={52} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
+          <TokenAvatar token={token} size={68} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{token.name}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--primary-color)', fontWeight: 600 }}>${token.ticker}</div>
+            <div style={{ fontWeight: 700, fontSize: 20, color: 'var(--text-primary)', marginBottom: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{token.name}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--primary-color)', fontWeight: 600 }}>${token.ticker}</div>
           </div>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 700, color: 'var(--primary-color)', flexShrink: 0 }}>{fmtMcap(ada)}</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 20, fontWeight: 700, color: 'var(--primary-color)', flexShrink: 0 }}>{fmtMcap(ada)}</div>
         </div>
 
         {/* Description */}
         {token.description && (
           <p style={{
-            fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5,
+            fontSize: 16, color: 'var(--text-secondary)', marginBottom: 16, lineHeight: 1.5,
             overflow: 'hidden', display: '-webkit-box',
             WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           }}>{token.description}</p>
         )}
 
         {/* Progress bar */}
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Curve</span>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: prog > 80 ? 'var(--primary-color)' : 'var(--text-tertiary)' }}>{prog}%</span>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Curve</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: prog > 80 ? 'var(--primary-color)' : 'var(--text-tertiary)' }}>{prog}%</span>
           </div>
-          <div style={{ height: 4, background: 'var(--bg-4)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${prog}%`, background: prog > 80 ? 'var(--primary-color)' : prog > 40 ? 'var(--warning)' : 'var(--text-tertiary)', borderRadius: 2, transition: 'width .5s ease' }} />
+          <div style={{ height: 5, background: 'var(--bg-4)', borderRadius: 3, overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${prog}%`, background: prog > 80 ? 'var(--primary-color)' : prog > 40 ? 'var(--warning)' : 'var(--text-tertiary)', borderRadius: 3, transition: 'width .5s ease' }} />
           </div>
         </div>
 
         {/* Stats + age */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
-          <div style={{ display: 'flex', gap: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 13, borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', gap: 18 }}>
             {[
               { l: 'Vol', v: fmtDust(BigInt(token.totalVolume ?? '0'), 0) },
               { l: 'Txns', v: String(token.txCount ?? 0) },
               { l: 'Hldr', v: String(token.holderCount ?? 1) },
             ].map(s => (
               <div key={s.l}>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{s.l}</div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{s.v}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{s.l}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 600, color: 'var(--text-primary)' }}>{s.v}</div>
               </div>
             ))}
           </div>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>{timeAgo(token.lastActivityAt ?? token.deployedAt ?? 0)}</span>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>{timeAgo(token.lastActivityAt ?? token.deployedAt ?? 0)}</span>
         </div>
 
         {token.graduated && (
@@ -153,7 +153,7 @@ function HomePageInner() {
         <div className="ticker-scroll">
           {DOUBLED.map((item, i) => (
             <div key={i} className="ticker-item">
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: item.up ? 'var(--primary-color)' : 'var(--danger)', display: 'inline-block', flexShrink: 0 }} />
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.up ? 'var(--primary-color)' : 'var(--danger)', display: 'inline-block', flexShrink: 0 }} />
               <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{item.t}</span>
               <span className={item.up ? 'up' : 'dn'}>{item.p}%</span>
             </div>
@@ -164,15 +164,15 @@ function HomePageInner() {
       {/* Toolbar */}
       <div className="discover-toolbar">
         {koth && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '.07em' }}>KotH</span>
-            <TokenAvatar token={koth} size={24} />
-            <span style={{ fontWeight: 600, fontSize: 13 }}>{koth.name}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '.07em' }}>KotH</span>
+            <TokenAvatar token={koth} size={31} />
+            <span style={{ fontWeight: 600, fontSize: 17 }}>{koth.name}</span>
             <span className="badge badge-green">${koth.ticker}</span>
             <Link href={`/token/${koth.address}`}>
-              <button className="btn btn-primary" style={{ height: 28, fontSize: 11, padding: '0 14px', borderRadius: 'var(--radius-pill)' }}>Trade</button>
+              <button className="btn btn-primary" style={{ height: 36, fontSize: 14, padding: '0 18px', borderRadius: 'var(--radius-pill)' }}>Trade</button>
             </Link>
-            <div style={{ width: 1, height: 20, background: 'var(--border-color)', margin: '0 4px' }} />
+            <div style={{ width: 1, height: 26, background: 'var(--border-color)', margin: '0 5px' }} />
           </div>
         )}
 
@@ -192,23 +192,59 @@ function HomePageInner() {
         <div style={{ flex: 1 }} />
 
         <input
-          style={{ height: 32, width: 220, background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 12px', fontSize: 12, color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font)', transition: 'var(--transition-fast)' }}
+          style={{ height: 42, width: 286, background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 16px', fontSize: 16, color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font)', transition: 'var(--transition-fast)' }}
           placeholder="Search..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
         <Link href="/launch">
-          <button className="btn btn-primary" style={{ height: 32, fontSize: 12, padding: '0 16px', borderRadius: 'var(--radius-pill)' }}>New token</button>
+          <button className="btn btn-primary" style={{ height: 42, fontSize: 16, padding: '0 21px', borderRadius: 'var(--radius-pill)' }}>New token</button>
         </Link>
       </div>
 
+      {/* Trending carousel */}
+      {!loading && filtered.length > 0 && (
+        <div className="trending-section">
+          <div className="trending-header">
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 700, color: 'var(--primary-color)', textTransform: 'uppercase', letterSpacing: '.08em' }}>Trending</span>
+            <div style={{ height: 1, flex: 1, background: 'var(--border-color)' }} />
+          </div>
+          <div className="trending-scroll">
+            {[...tokens]
+              .sort((a, b) => (b.totalVolume ?? 0) - (a.totalVolume ?? 0))
+              .slice(0, 12)
+              .map(t => {
+                const prog = bondingProgress(BigInt(t.adaReserve ?? '0'));
+                return (
+                  <Link key={`tr-${t.address}`} href={`/token/${t.address}`} className="trending-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                      <TokenAvatar token={t} size={42} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--primary-color)', fontWeight: 600 }}>${t.ticker}</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: 'var(--primary-color)' }}>{fmtMcap(BigInt(t.adaReserve ?? '0'))}</span>
+                      <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-tertiary)' }}>mcap</span>
+                    </div>
+                    <div style={{ height: 4, background: 'var(--bg-4)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${prog}%`, background: prog > 80 ? 'var(--primary-color)' : prog > 40 ? 'var(--warning)' : 'var(--text-tertiary)', borderRadius: 2 }} />
+                    </div>
+                  </Link>
+                );
+              })}
+          </div>
+        </div>
+      )}
+
       {/* Mosaic grid */}
       {loading ? (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>Loading...</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, fontFamily: 'var(--mono)', fontSize: 17, color: 'var(--text-tertiary)' }}>Loading...</div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--s-16)' }}>
           {filtered.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 260, fontFamily: 'var(--mono)', fontSize: 17, color: 'var(--text-tertiary)' }}>
               {filter === 'bonded' ? 'No graduated tokens yet' : 'No tokens found'}
             </div>
           ) : (

@@ -24,7 +24,7 @@ export function getWalletErrorPresentation(raw: string): WalletErrorPresentation
     return {
       title: 'Network does not match',
       body:
-        `This site is set to "${expected}" (${PUBLIC_NETWORK_LABEL}). In Lace open Settings → Midnight → Configure Midnight Nodes and choose the same network. ` +
+        `This site is set to "${expected}" (${PUBLIC_NETWORK_LABEL}). In your wallet settings, switch to the same network. ` +
         `If you deploy the app yourself, set NEXT_PUBLIC_NETWORK_ID to match your wallet.`,
       variant: 'network',
     };
@@ -38,7 +38,7 @@ export function getWalletErrorPresentation(raw: string): WalletErrorPresentation
   ) {
     return {
       title: 'Request cancelled',
-      body: 'Lace closed the request. Try Connect again when you are ready to approve in the wallet.',
+      body: 'The wallet closed the request. Try Connect again when you are ready to approve.',
       variant: 'default',
     };
   }
@@ -49,9 +49,9 @@ export function getWalletErrorPresentation(raw: string): WalletErrorPresentation
     lower.includes('extension') && lower.includes('install')
   ) {
     return {
-      title: 'Lace not found',
+      title: 'Wallet not found',
       body:
-        'Install the Lace browser extension, enable Midnight in Lace settings, then refresh this page and connect again.',
+        'Install the 1AM wallet browser extension, then refresh this page and connect again.',
       variant: 'install',
     };
   }

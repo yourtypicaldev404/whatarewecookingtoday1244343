@@ -6,7 +6,7 @@ export async function submitBuyTx(params: {
   tokensOut: bigint;
 }) {
   const midnight = (window as any).midnight;
-  if (!midnight) throw new Error('Install Lace wallet');
+  if (!midnight) throw new Error('Install a Midnight wallet (1AM recommended)');
   const wallets = Object.values(midnight) as any[];
   if (!wallets.length) throw new Error('No Midnight wallet found');
   const api = await wallets[0].connect(process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preprod');
@@ -28,7 +28,7 @@ export async function submitSellTx(params: {
   adaOut: bigint;
 }) {
   const midnight = (window as any).midnight;
-  if (!midnight) throw new Error('Install Lace wallet');
+  if (!midnight) throw new Error('Install a Midnight wallet (1AM recommended)');
   const wallets = Object.values(midnight) as any[];
   if (!wallets.length) throw new Error('No Midnight wallet found');
   const api = await wallets[0].connect(process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preprod');

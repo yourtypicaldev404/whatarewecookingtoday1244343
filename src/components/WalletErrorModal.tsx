@@ -125,7 +125,7 @@ export default function WalletErrorModal() {
                 border: '1px solid var(--border-color)',
               }}
             >
-              Get Lace
+              Get 1AM Wallet
             </a>
           ) : null}
           <button

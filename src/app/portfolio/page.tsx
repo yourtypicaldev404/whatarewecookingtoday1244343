@@ -106,18 +106,18 @@ export default function PortfolioPage() {
   if (!connected) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', textAlign: 'center', padding: '0 24px' }}>
-        <div style={{ width: 64, height: 64, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, marginBottom: 20 }}>🌙</div>
-        <h2 style={{ fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em', marginBottom: 10, color: 'var(--text-primary)' }}>Connect to see your portfolio</h2>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 14, maxWidth: 380, marginBottom: 28, lineHeight: 1.6 }}>
-          Link your Lace wallet to view your positions, P&L, and transaction history.
+        <div style={{ width: 83, height: 83, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, marginBottom: 26 }}>🌙</div>
+        <h2 style={{ fontWeight: 700, fontSize: 31, letterSpacing: '-0.02em', marginBottom: 13, color: 'var(--text-primary)' }}>Connect to see your portfolio</h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 18, maxWidth: 494, marginBottom: 36, lineHeight: 1.6 }}>
+          Connect your wallet to view your positions, P&L, and transaction history.
         </p>
         <button
           className="btn btn-primary"
-          style={{ fontSize: 14, padding: '12px 32px', height: 'var(--btn-h-lg)', borderRadius: 'var(--radius-lg)' }}
+          style={{ fontSize: 18, padding: '16px 42px', height: 'var(--btn-h-lg)', borderRadius: 'var(--radius-lg)' }}
           disabled={connecting}
           onClick={() => void connect()}
         >
-          {connecting ? 'Connecting...' : 'Connect Lace'}
+          {connecting ? 'Connecting...' : 'Connect Wallet'}
         </button>
       </div>
     );
@@ -125,19 +125,19 @@ export default function PortfolioPage() {
 
   return (
     <div style={{ minHeight: '100vh' }}>
-      <div className="container" style={{ paddingTop: 40, paddingBottom: 80 }}>
+      <div className="container" style={{ paddingTop: 52, paddingBottom: 104 }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Portfolio</span>
-            <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--primary-color)', background: 'rgba(var(--primary-rgb),.12)', border: '1px solid rgba(var(--primary-rgb),.25)', borderRadius: 'var(--radius-sm)', padding: '2px 8px' }}>mock data</span>
+        <div style={{ marginBottom: 42 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 8 }}>
+            <span style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Portfolio</span>
+            <span style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--primary-color)', background: 'rgba(var(--primary-rgb),.12)', border: '1px solid rgba(var(--primary-rgb),.25)', borderRadius: 'var(--radius-sm)', padding: '3px 10px' }}>mock data</span>
           </div>
           <h1 style={{ fontSize: 'clamp(24px,3.5vw,36px)', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 0 }}>Your Holdings</h1>
         </div>
 
         {/* Summary cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 14, marginBottom: 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(286px,1fr))', gap: 18, marginBottom: 47 }}>
           {[
             {
               label: 'Portfolio Value',
@@ -164,48 +164,48 @@ export default function PortfolioPage() {
               color: '#22d3ee',
             },
           ].map(card => (
-            <div key={card.label} className="glass" style={{ padding: '18px 20px', borderRadius: 'var(--radius-md)' }}>
-              <div style={{ fontSize: 10, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 8 }}>{card.label}</div>
-              <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--mono)', color: card.color, marginBottom: 4 }}>{card.value}</div>
-              <div style={{ fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)' }}>{card.sub}</div>
+            <div key={card.label} className="glass" style={{ padding: '23px 26px', borderRadius: 'var(--radius-md)' }}>
+              <div style={{ fontSize: 13, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 10 }}>{card.label}</div>
+              <div style={{ fontSize: 31, fontWeight: 700, fontFamily: 'var(--mono)', color: card.color, marginBottom: 5 }}>{card.value}</div>
+              <div style={{ fontSize: 16, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)' }}>{card.sub}</div>
             </div>
           ))}
         </div>
 
         {/* Positions */}
         <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontWeight: 700, fontSize: 16, marginBottom: 14, letterSpacing: '-0.02em' }}>Positions</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <h2 style={{ fontWeight: 700, fontSize: 21, marginBottom: 18, letterSpacing: '-0.02em' }}>Positions</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
             {MOCK_POSITIONS.map(pos => {
               const { pct, dust } = pnl(pos);
               const positive = pct >= 0;
               return (
                 <Link key={pos.address} href={`/token/${pos.address}`} style={{ textDecoration: 'none' }}>
-                  <div className="glass token-card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', borderColor: pos.graduated ? 'rgba(var(--primary-rgb),.18)' : 'var(--border-color)' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${pos.address.slice(2,8)},#${pos.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{pos.emoji}</div>
+                  <div className="glass token-card" style={{ padding: '21px 23px', display: 'flex', alignItems: 'center', gap: 21, flexWrap: 'wrap', borderColor: pos.graduated ? 'rgba(var(--primary-rgb),.18)' : 'var(--border-color)' }}>
+                    <div style={{ width: 57, height: 57, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${pos.address.slice(2,8)},#${pos.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 29, flexShrink: 0 }}>{pos.emoji}</div>
 
                     <div style={{ flex: '1 1 120px', minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 700, fontSize: 15 }}>{pos.name}</span>
+                        <span style={{ fontWeight: 700, fontSize: 20 }}>{pos.name}</span>
                         {pos.graduated && <span className="badge badge-green">Graduated</span>}
                       </div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--primary-color)' }}>${pos.ticker}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--primary-color)' }}>${pos.ticker}</div>
                     </div>
 
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{fmtTokens(pos.tokensHeld)}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>tokens</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600 }}>{fmtTokens(pos.tokensHeld)}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>tokens</div>
                     </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 80 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: 'var(--primary-color)' }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 104 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: 'var(--primary-color)' }}>
                         ₾{fmtDust(BigInt(Math.round(Number(pos.tokensHeld) / 1e12 * pos.currentPrice * 1e6)), 2)}
                       </div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>value</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>value</div>
                     </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 80 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600, color: positive ? 'var(--primary-color)' : 'var(--danger)' }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 104 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: positive ? 'var(--primary-color)' : 'var(--danger)' }}>
                         {positive ? '+' : ''}{pct.toFixed(1)}%
                       </div>
                       <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: positive ? 'var(--primary-color)' : 'var(--danger)', opacity: 0.75 }}>
@@ -215,7 +215,7 @@ export default function PortfolioPage() {
 
                     <button
                       className="btn btn-primary"
-                      style={{ flexShrink: 0, fontSize: 12, padding: '6px 16px', borderRadius: 'var(--radius-pill)' }}
+                      style={{ flexShrink: 0, fontSize: 16, padding: '8px 21px', borderRadius: 'var(--radius-pill)' }}
                       onClick={e => { e.preventDefault(); e.stopPropagation(); }}
                     >
                       Trade
@@ -229,27 +229,27 @@ export default function PortfolioPage() {
 
         {/* Created tokens */}
         <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontWeight: 700, fontSize: 16, marginBottom: 14, letterSpacing: '-0.02em' }}>Tokens You Created</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <h2 style={{ fontWeight: 700, fontSize: 21, marginBottom: 18, letterSpacing: '-0.02em' }}>Tokens You Created</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
             {MOCK_CREATED.map(tok => (
               <Link key={tok.address} href={`/token/${tok.address}`} style={{ textDecoration: 'none' }}>
-                <div className="glass token-card" style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${tok.address.slice(2,8)},#${tok.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{tok.emoji}</div>
+                <div className="glass token-card" style={{ padding: '21px 23px', display: 'flex', alignItems: 'center', gap: 21, flexWrap: 'wrap' }}>
+                  <div style={{ width: 57, height: 57, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${tok.address.slice(2,8)},#${tok.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 29, flexShrink: 0 }}>{tok.emoji}</div>
                   <div style={{ flex: '1 1 120px', minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{tok.name}</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--primary-color)' }}>${tok.ticker}</div>
+                    <div style={{ fontWeight: 700, fontSize: 20 }}>{tok.name}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--primary-color)' }}>${tok.ticker}</div>
                   </div>
                   {[
                     { label: 'Holders', value: tok.holderCount.toString() },
                     { label: 'Txns',    value: tok.txCount.toString() },
                     { label: 'Volume',  value: `₾${fmtDust(tok.adaReserve / 10n, 0)}` },
                   ].map(({ label, value }) => (
-                    <div key={label} style={{ textAlign: 'right', flexShrink: 0, minWidth: 60 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 600 }}>{value}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>{label}</div>
+                    <div key={label} style={{ textAlign: 'right', flexShrink: 0, minWidth: 78 }}>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600 }}>{value}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>{label}</div>
                     </div>
                   ))}
-                  <span style={{ flexShrink: 0, fontSize: 12, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', padding: '5px 12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>Creator</span>
+                  <span style={{ flexShrink: 0, fontSize: 16, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', padding: '7px 16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>Creator</span>
                 </div>
               </Link>
             ))}
@@ -258,25 +258,25 @@ export default function PortfolioPage() {
 
         {/* Recent transactions */}
         <div>
-          <h2 style={{ fontWeight: 700, fontSize: 16, marginBottom: 14, letterSpacing: '-0.02em' }}>Recent Transactions</h2>
+          <h2 style={{ fontWeight: 700, fontSize: 21, marginBottom: 18, letterSpacing: '-0.02em' }}>Recent Transactions</h2>
           <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
             {MOCK_TXS.map((tx, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 18px', borderBottom: i < MOCK_TXS.length - 1 ? '1px solid var(--border-color)' : 'none', flexWrap: 'wrap' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: tx.type === 'buy' ? 'rgba(var(--primary-rgb),.12)' : 'rgba(var(--danger-rgb),.12)', border: `1px solid ${tx.type === 'buy' ? 'rgba(var(--primary-rgb),.25)' : 'rgba(var(--danger-rgb),.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 21, padding: '18px 23px', borderBottom: i < MOCK_TXS.length - 1 ? '1px solid var(--border-color)' : 'none', flexWrap: 'wrap' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 'var(--radius-sm)', background: tx.type === 'buy' ? 'rgba(var(--primary-rgb),.12)' : 'rgba(var(--danger-rgb),.12)', border: `1px solid ${tx.type === 'buy' ? 'rgba(var(--primary-rgb),.25)' : 'rgba(var(--danger-rgb),.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
                   {tx.type === 'buy' ? '↑' : '↓'}
                 </div>
                 <div style={{ flex: 1, minWidth: 100 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14 }}>{tx.type === 'buy' ? 'Bought' : 'Sold'} </span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--primary-color)' }}>${tx.ticker}</span>
-                  <span style={{ fontWeight: 400, fontSize: 14 }}> · {tx.name}</span>
+                  <span style={{ fontWeight: 600, fontSize: 18 }}>{tx.type === 'buy' ? 'Bought' : 'Sold'} </span>
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 18, color: 'var(--primary-color)' }}>${tx.ticker}</span>
+                  <span style={{ fontWeight: 400, fontSize: 18 }}> · {tx.name}</span>
                 </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: tx.type === 'buy' ? 'var(--primary-color)' : 'var(--danger)', flexShrink: 0 }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 17, color: tx.type === 'buy' ? 'var(--primary-color)' : 'var(--danger)', flexShrink: 0 }}>
                   {tx.type === 'buy' ? '+' : '-'}{fmtTokens(tx.tokenAmt)} tokens
                 </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 80, textAlign: 'right' }}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 17, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 104, textAlign: 'right' }}>
                   ₾{fmtDust(tx.dustAmt, 2)}
                 </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 56, textAlign: 'right' }}>{tx.ago}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 73, textAlign: 'right' }}>{tx.ago}</div>
               </div>
             ))}
           </div>

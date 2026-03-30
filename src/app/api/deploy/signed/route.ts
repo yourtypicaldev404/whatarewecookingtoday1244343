@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing name or ticker' }, { status: 400 });
     }
     if (!signature || !verifyingKey) {
-      return NextResponse.json({ error: 'Missing Lace signature' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing wallet signature' }, { status: 400 });
     }
 
     const deployServerUrl = (process.env.DEPLOY_SERVER_URL ?? 'http://localhost:3001').replace(/\/$/, '');

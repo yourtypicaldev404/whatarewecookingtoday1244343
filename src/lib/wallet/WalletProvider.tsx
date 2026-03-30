@@ -7,8 +7,11 @@
  *   package: @midnight-ntwrk/dapp-connector-api
  *   window.midnight.{walletId}.connect(networkId)
  *
- * The Lace wallet injects itself as window.midnight.mnLace
+ * The 1AM wallet injects itself as window.midnight['1am']
+ * Lace wallet injects as window.midnight.mnLace (fallback)
  */
+
+const PREFERRED_WALLET_ID = '1am';
 
 import {
   createContext, useContext, useState, useCallback, useEffect, useRef,
@@ -136,7 +139,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     try {
       if (typeof window === 'undefined' || !window.midnight) {
-        throw new Error('No Midnight wallets detected. Please install the Lace wallet extension.');
+        throw new Error('No Midnight wallets detected. Please install the 1AM wallet extension.');
       }
 
       const wallets = Object.entries(window.midnight).filter(
@@ -146,9 +149,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         throw new Error('No Midnight wallets detected.');
       }
 
-      // Pick preferred wallet or first compatible one
-      const [walletId, walletAPI] = preferredId && window.midnight[preferredId] && isInitialAPI(window.midnight[preferredId])
-        ? [preferredId, window.midnight[preferredId]]
+      // Pick preferred wallet: explicit arg > 1AM > first compatible
+      const pickId = preferredId ?? PREFERRED_WALLET_ID;
+      const [walletId, walletAPI] = pickId && window.midnight[pickId] && isInitialAPI(window.midnight[pickId])
+        ? [pickId, window.midnight[pickId]]
         : wallets[0];
 
       const connected = await walletAPI.connect(PUBLIC_NETWORK_ID);

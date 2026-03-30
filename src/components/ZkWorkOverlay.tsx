@@ -28,7 +28,7 @@ export default function ZkWorkOverlay({
   const tradeTitle =
     variant === 'trade'
       ? tradePhase === 'wallet'
-        ? 'Approve in Lace'
+        ? 'Approve in wallet'
         : 'Generating ZK proof...'
       : title;
 
