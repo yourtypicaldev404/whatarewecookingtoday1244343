@@ -137,7 +137,7 @@ export default function PortfolioPage() {
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
             <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Portfolio</span>
-            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--neon-violet-bright)', background: 'rgba(139,92,246,.12)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 4, padding: '1px 6px' }}>preview · mock data</span>
+            <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--neon-violet-bright)', background: 'rgba(139,92,246,.12)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 4, padding: '1px 6px' }}>mock data</span>
           </div>
           <h1 style={{ fontSize: 'clamp(24px,3.5vw,36px)', fontWeight: 800, letterSpacing: '-0.03em', marginBottom: 0 }}>Your Holdings</h1>
         </div>

@@ -2,7 +2,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import { WebSocket } from "ws";
-import * as Rx from "rxjs";
 
 import { setNetworkId } from "@midnight-ntwrk/midnight-js-network-id";
 import { deployContract } from "@midnight-ntwrk/midnight-js-contracts";
@@ -24,9 +23,15 @@ globalThis.WebSocket = WebSocket;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ZK_PATH = path.resolve(__dirname, "../contracts/managed/bonding_curve");
 
-/** Align with deploy-server.mjs + Vercel — default Preview. Override: NETWORK_ID=preprod node scripts/deploy-real.mjs */
-const NETWORK_ID = (process.env.NETWORK_ID ?? "preview").toLowerCase();
+/** Align with deploy-server.mjs + Vercel — default Mainnet. Override: NETWORK_ID=preview node scripts/deploy-real.mjs */
+const NETWORK_ID = (process.env.NETWORK_ID ?? "mainnet").toLowerCase();
 const ENDPOINTS = {
+  mainnet: {
+    INDEXER: "https://indexer.mainnet.midnight.network/api/v4/graphql",
+    INDEXERWS: "wss://indexer.mainnet.midnight.network/api/v4/graphql/ws",
+    NODE: "https://rpc.mainnet.midnight.network",
+    PROOF: process.env.PROOF_SERVER_URL ?? "http://127.0.0.1:6300",
+  },
   preview: {
     INDEXER: "https://indexer.preview.midnight.network/api/v4/graphql",
     INDEXERWS: "wss://indexer.preview.midnight.network/api/v4/graphql/ws",
@@ -40,7 +45,7 @@ const ENDPOINTS = {
     PROOF: process.env.PROOF_SERVER_URL ?? "https://lace-proof-pub.preprod.midnight.network",
   },
 };
-const ep = ENDPOINTS[NETWORK_ID] ?? ENDPOINTS.preview;
+const ep = ENDPOINTS[NETWORK_ID] ?? ENDPOINTS.mainnet;
 const INDEXER = ep.INDEXER;
 const INDEXERWS = ep.INDEXERWS;
 const NODE = ep.NODE;
@@ -60,7 +65,7 @@ function deriveKeys(seed) {
 }
 
 async function main() {
-  console.log(`Network: ${NETWORK_ID} (set NETWORK_ID=preprod to override)\n`);
+  console.log(`Network: ${NETWORK_ID} (set NETWORK_ID=preview to override)\n`);
   const dep  = JSON.parse(fs.readFileSync("deployment.json", "utf-8"));
   const seed = dep.walletSeed ?? dep.seed;
   if (!seed) throw new Error("No seed in deployment.json");
@@ -98,12 +103,7 @@ async function main() {
   await wallet.start(shieldedSK, dustSK);
 
   console.log("Syncing...");
-  const state = await Rx.firstValueFrom(
-    wallet.state().pipe(
-      Rx.throttleTime(5000),
-      Rx.filter(s => s.isSynced)
-    )
-  );
+  const state = await wallet.waitForSyncedState();
   console.log("Synced!");
 
   const walletProvider = {

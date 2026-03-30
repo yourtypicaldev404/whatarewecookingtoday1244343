@@ -2,17 +2,17 @@
 
 What cannot be scripted in-repo (no access to your Vercel/Railway accounts) is listed as **you set in dashboard**. Everything else is in `package.json`, `docker-compose.yml`, and env examples.
 
-## Preview everywhere (recommended)
+## Mainnet everywhere (recommended)
 
-Use **one** network end-to-end. Mismatch (e.g. Lace on Preprod, indexer on Preview) causes **“No public state found at contract address”** on buy/sell.
+Use **one** network end-to-end. Mismatch (e.g. Lace on Preview, indexer on Mainnet) causes **”No public state found at contract address”** on buy/sell.
 
 | Layer | Set |
 |-------|-----|
-| **Lace** | Settings → Midnight → **Preview** node + prover URL for Preview |
-| **Vercel** | `NEXT_PUBLIC_NETWORK_ID=preview` and Preview indexer/RPC/proof from `.env.example` |
-| **Railway (deploy server)** | **`NETWORK_ID=preview` only** — do **not** set `NEXT_PUBLIC_NETWORK_ID` here. Indexer/RPC: deploy-server uses URLs from **`NETWORK_ID`** first; stray **`NEXT_PUBLIC_INDEXER_*` / `NEXT_PUBLIC_MIDNIGHT_NODE_URL`** pointing at Preprod while `NETWORK_ID=preview` used to break trades — fixed in code, but clean up Railway vars to Preview URLs or remove duplicates. |
+| **Lace** | Settings → Midnight → **Mainnet** node + prover URL |
+| **Vercel** | `NEXT_PUBLIC_NETWORK_ID=mainnet` and Mainnet indexer/RPC from `.env.example` |
+| **Railway (deploy server)** | **`NETWORK_ID=mainnet` only** — do **not** set `NEXT_PUBLIC_NETWORK_ID` here. Indexer/RPC: deploy-server uses URLs from **`NETWORK_ID`** first; stray **`NEXT_PUBLIC_INDEXER_*` / `NEXT_PUBLIC_MIDNIGHT_NODE_URL`** pointing at a testnet while `NETWORK_ID=mainnet` will break trades — fixed in code, but clean up Railway vars to Mainnet URLs or remove duplicates. |
 
-Copy values from `.env.example` (top section — already Preview). Do not mix Preprod URLs with `NEXT_PUBLIC_NETWORK_ID=preview`.
+Copy values from `.env.example` (top section — already Mainnet). Do not mix testnet URLs with `NEXT_PUBLIC_NETWORK_ID=mainnet`.
 
 ## Local stack (one command)
 
@@ -39,7 +39,7 @@ In **Project → Settings → Environment Variables** (Production / Preview as n
 | `NEXT_PUBLIC_NETWORK_ID` | `preview`, `preprod`, or `mainnet` — must match Lace node config. |
 | `NEXT_PUBLIC_MIDNIGHT_NODE_URL` | RPC for that network (see `.env.example`). |
 | `NEXT_PUBLIC_INDEXER_HTTP` / `NEXT_PUBLIC_INDEXER_WS` | Indexer URLs for that network. |
-| `NEXT_PUBLIC_PROOF_SERVER` | Usually `https://proof-server.preview.midnight.network` (or your hosted prover URL). Browsers cannot use `localhost` unless you only test on the same PC. |
+| `NEXT_PUBLIC_PROOF_SERVER` | Your hosted prover URL (no public mainnet proof server yet). Browsers cannot use `localhost` unless you only test on the same PC. |
 | `NEXT_PUBLIC_APP_URL` | Canonical site URL. |
 | Plus | Redis/KV, Pinata, etc. per `.env.example`. |
 
@@ -53,7 +53,7 @@ Redeploy after changing env vars.
 2. **Open** `https://<your-deploy-service>.up.railway.app/health` — you should see JSON with `status: ok`, `networkId`, and `proofServer` (Midnight hosted URL).
 3. **Redeploy** after changing `railway.json` (this repo uses `npm install` without `--ignore-scripts`, and `healthcheckPath: /health`).
 
-`PROOF_SERVER_URL=https://proof-server.preview.midnight.network` is correct for Preview; **503** usually means the **Railway Node process** isn’t healthy (not the proof URL being wrong).
+`PROOF_SERVER_URL` should point to your self-hosted proof server for mainnet; **503** usually means the **Railway Node process** isn’t healthy (not the proof URL being wrong).
 
 ---
 
@@ -63,8 +63,8 @@ In the **deploy** service → **Variables**:
 
 | Variable | Purpose |
 |----------|---------|
-| `PROOF_SERVER_URL` | **Optional on Preview/Preprod:** deploy-server defaults to Midnight’s hosted proof if unset (`proof-server.preview.midnight.network` / Preprod lace-proof-pub). **Self-hosted:** internal URL of your proof service (e.g. `http://proof-server.railway.internal:6300`). **Do not** rely on `http://127.0.0.1:6300` on Railway — there is no local prover unless you add one. |
-| `NETWORK_ID` | `preview` / `preprod` / … — must match wallet + indexer. |
+| `PROOF_SERVER_URL` | **Required on Mainnet:** no public hosted prover — self-host via Docker or a second Railway service (e.g. `http://proof-server.railway.internal:6300`). **Preview/Preprod:** defaults to Midnight’s hosted proof if unset. **Do not** rely on `http://127.0.0.1:6300` on Railway — there is no local prover unless you add one. |
+| `NETWORK_ID` | `mainnet` / `preview` / `preprod` — must match wallet + indexer. |
 | `INDEXER_HTTP`, `INDEXER_WS`, `NODE_RPC` | Optional overrides; defaults come from `NETWORK_ID` in `deploy-server.mjs`. |
 | `DEPLOYER_SEED` / `TREASURY_SEED` | Deploy wallet / treasury (hex). **Secrets — set only in Railway, never commit.** |
 | `PORT` | Railway sets this automatically; optional override. |

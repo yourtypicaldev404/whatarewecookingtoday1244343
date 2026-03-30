@@ -144,8 +144,8 @@ npm run compile-contracts
 ### Vercel (frontend)
 
 ```bash
-NEXT_PUBLIC_NETWORK_ID=preview          # preview | preprod | mainnet
-NEXT_PUBLIC_NETWORK_LABEL=Preview       # display label
+NEXT_PUBLIC_NETWORK_ID=mainnet          # mainnet | preview | preprod
+NEXT_PUBLIC_NETWORK_LABEL=Mainnet       # display label
 NEXT_PUBLIC_FAUCET_URL=https://...      # optional faucet link
 NEXT_PUBLIC_INDEXER_HTTP=https://...
 NEXT_PUBLIC_INDEXER_WS=wss://...
@@ -159,13 +159,13 @@ PINATA_JWT=                             # IPFS image uploads
 ### Railway (deploy server)
 
 ```bash
-NETWORK_ID=preview
-DEPLOYER_SEED=<64-char hex>             # server wallet seed (needs testnet DUST)
+NETWORK_ID=mainnet
+DEPLOYER_SEED=<64-char hex>             # server wallet seed (needs DUST)
 TREASURY_SEED=<64-char hex>             # treasury witness key
-PROOF_SERVER_URL=https://lace-proof-pub.preview.midnight.network   # or self-hosted
-INDEXER_HTTP=https://indexer.preview.midnight.network/api/v4/graphql
-INDEXER_WS=wss://indexer.preview.midnight.network/api/v4/graphql/ws
-NODE_RPC=https://rpc.preview.midnight.network
+PROOF_SERVER_URL=http://127.0.0.1:6300                              # self-hosted (no public mainnet prover yet)
+INDEXER_HTTP=https://indexer.mainnet.midnight.network/api/v4/graphql
+INDEXER_WS=wss://indexer.mainnet.midnight.network/api/v4/graphql/ws
+NODE_RPC=https://rpc.mainnet.midnight.network
 PORT=3001
 ```
 

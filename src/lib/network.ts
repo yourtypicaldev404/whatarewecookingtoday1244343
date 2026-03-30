@@ -1,12 +1,12 @@
 /**
  * Single source of truth for Midnight network across the app.
  *
- * Production default: **preview** — set `NEXT_PUBLIC_NETWORK_ID=preview` on Vercel, `NETWORK_ID=preview`
+ * Production default: **mainnet** — set `NEXT_PUBLIC_NETWORK_ID=mainnet` on Vercel, `NETWORK_ID=mainnet`
  * on Railway (deploy server), and the same network in Lace → Configure Midnight Nodes. Mixing
- * Preview indexer with a Preprod wallet (or the reverse) causes “no public state” on trades.
+ * Mainnet indexer with a Preview wallet (or the reverse) causes “no public state” on trades.
  *
- * Switch networks (Preview / Preprod / Mainnet) in one place:
- *   NEXT_PUBLIC_NETWORK_ID=preview | preprod | mainnet
+ * Switch networks (Mainnet / Preview / Preprod) in one place:
+ *   NEXT_PUBLIC_NETWORK_ID=mainnet | preview | preprod
  *
  * Optional overrides:
  *   NEXT_PUBLIC_NETWORK_LABEL   — display name (default: derived from id, e.g. mainnet → Mainnet)
@@ -14,7 +14,7 @@
  */
 
 export const PUBLIC_NETWORK_ID =
-  process.env.NEXT_PUBLIC_NETWORK_ID ?? 'preview';
+  process.env.NEXT_PUBLIC_NETWORK_ID ?? 'mainnet';
 
 function defaultLabelForId(id: string): string {
   const lower = id.toLowerCase();

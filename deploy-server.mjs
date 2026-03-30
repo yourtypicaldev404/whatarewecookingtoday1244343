@@ -3,7 +3,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import { WebSocket } from 'ws';
-import * as Rx from 'rxjs';
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import {
   deployContract,
@@ -63,8 +62,13 @@ loadProjectEnvFiles();
 
 const ZK_PATH   = path.resolve(__dirname, './contracts/managed/bonding_curve');
 
-/** Align with Lace / NEXT_PUBLIC_* — default Preview so chain state matches a Preview-configured wallet. */
+/** Align with Lace / NEXT_PUBLIC_* — default Mainnet so chain state matches a Mainnet-configured wallet. */
 const NETWORK_DEFAULTS = {
+  mainnet: {
+    INDEXER: 'https://indexer.mainnet.midnight.network/api/v4/graphql',
+    INDEXERWS: 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws',
+    NODE: 'https://rpc.mainnet.midnight.network',
+  },
   preview: {
     INDEXER: 'https://indexer.preview.midnight.network/api/v4/graphql',
     INDEXERWS: 'wss://indexer.preview.midnight.network/api/v4/graphql/ws',
@@ -78,11 +82,11 @@ const NETWORK_DEFAULTS = {
 };
 
 /**
- * Deploy server network — **NETWORK_ID only** (default `preview`).
+ * Deploy server network — **NETWORK_ID only** (default `mainnet`).
  * Do not read NEXT_PUBLIC_NETWORK_ID here: Railway often copies Vercel-style env and a wrong
- * NEXT_PUBLIC_NETWORK_ID (e.g. preprod) would break indexer/trades vs Vercel preview.
+ * NEXT_PUBLIC_NETWORK_ID (e.g. preprod) would break indexer/trades vs Vercel mainnet.
  */
-const NETWORK_ID = (process.env.NETWORK_ID ?? 'preview').toLowerCase();
+const NETWORK_ID = (process.env.NETWORK_ID ?? 'mainnet').toLowerCase();
 const defaults = NETWORK_DEFAULTS[NETWORK_ID] ?? null;
 
 /**
@@ -107,7 +111,7 @@ const NODE =
 if (!INDEXER || !INDEXERWS || !NODE) {
   console.error(
     `[deploy-server] Missing indexer/node URLs for NETWORK_ID=${NETWORK_ID}. ` +
-      'Set INDEXER_HTTP, INDEXER_WS, NODE_RPC (or use network preview|preprod).',
+      'Set INDEXER_HTTP, INDEXER_WS, NODE_RPC (or use network mainnet|preview|preprod).',
   );
   process.exit(1);
 }
@@ -116,6 +120,7 @@ setNetworkId(NETWORK_ID);
 
 /** Default hosted provers — Railway/cloud has no localhost prover; local dev overrides via .env.local or docker compose. */
 const PROOF_DEFAULT_BY_NETWORK = {
+  mainnet: 'http://127.0.0.1:6300',
   preview: 'https://lace-proof-pub.preview.midnight.network',
   preprod: 'https://lace-proof-pub.preprod.midnight.network',
 };
@@ -229,10 +234,7 @@ async function buildWallet(seed) {
   });
 
   await wallet.start(shieldedSK, dustSK);
-
-  await Rx.firstValueFrom(
-    wallet.state().pipe(Rx.throttleTime(5000), Rx.filter(s => s.isSynced))
-  );
+  await wallet.waitForSyncedState();
 
   return { wallet, shieldedSK, dustSK, keystore };
 }
@@ -243,9 +245,7 @@ async function deployBondingCurve() {
   const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
   const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
 
-  const state = await Rx.firstValueFrom(
-    wallet.state().pipe(Rx.throttleTime(5000), Rx.filter(s => s.isSynced))
-  );
+  const state = await wallet.waitForSyncedState();
   const walletProvider = {
     getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),
     getEncryptionPublicKey: () => state.shielded.encryptionPublicKey.toHexString(),
@@ -473,7 +473,7 @@ app.post('/deploy/signed', async (req, res) => {
     const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
 
-    const state = await Rx.firstValueFrom(wallet.state().pipe(Rx.filter(s => s.isSynced)));
+    const state = await wallet.waitForSyncedState();
 
     const walletProvider = {
       getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),

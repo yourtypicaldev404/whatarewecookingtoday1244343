@@ -5,7 +5,7 @@ import crypto from "crypto";
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
 /** Keep in sync with src/lib/network.ts defaults (or load .env.local before running). */
-const NETWORK = process.env.NEXT_PUBLIC_NETWORK_ID ?? "preview";
+const NETWORK = process.env.NEXT_PUBLIC_NETWORK_ID ?? "mainnet";
 const FAUCET =
   NETWORK === "preprod"
     ? "https://faucet.preprod.midnight.network/"

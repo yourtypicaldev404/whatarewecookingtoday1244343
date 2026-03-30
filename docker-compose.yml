@@ -33,7 +33,7 @@ services:
       - "3001:3001"
     environment:
       PROOF_SERVER_URL: http://proof-server:6300
-      NETWORK_ID: ${NETWORK_ID:-preview}
+      NETWORK_ID: ${NETWORK_ID:-mainnet}
       PORT: "3001"
     # Optional: copy .env to project root or use `docker compose --env-file .env --profile full up`
     depends_on:

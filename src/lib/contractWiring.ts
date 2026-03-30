@@ -291,8 +291,8 @@ function tradeBuildErrorMessage(status: number, body: string): string {
   if (generic && (status === 502 || status === 503 || status === 504)) {
     return (
       'Trade backend unavailable (deploy server or proof service). ' +
-      'If you host deploy-server: set PROOF_SERVER_URL to Midnight\u2019s hosted proof URL for your network ' +
-      '(e.g. https://proof-server.preview.midnight.network for Preview), or run a local proof server. ' +
+      'If you host deploy-server: set PROOF_SERVER_URL to your proof server ' +
+      '(e.g. http://127.0.0.1:6300 for local Docker, or a hosted instance). ' +
       'Check Railway/Vercel logs and DEPLOY_SERVER_URL.'
     );
   }
@@ -301,9 +301,9 @@ function tradeBuildErrorMessage(status: number, body: string): string {
   }
   if (!generic && /no public state found at contract address/i.test(t)) {
     return (
-      'Contract not found on the indexer. On testnets this usually means the network was reset after your token was deployed \u2014 redeploy your token. ' +
+      'Contract not found on the indexer. Verify Lace, Vercel, and Railway all use the same network. ' +
       'If this is a freshly deployed token, wait 30\u201360 s for the indexer to catch up and try again. ' +
-      'On mainnet, verify Lace, Vercel, and Railway all use the same network. ' +
+      'On testnets this can also mean the network was reset after deployment. ' +
       t
     );
   }
