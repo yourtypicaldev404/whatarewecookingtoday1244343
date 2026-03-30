@@ -13,22 +13,49 @@ export default function LaunchPage() {
   const [deployPhase, setDeployPhase] = useState<'proving'|'signing'|'submitting'|'saving'>('proving');
   const [deployError, setDeployError] = useState<string | null>(null);
   const [iconPreview, setIconPreview] = useState<string | null>(null);
+  const [iconFile, setIconFile] = useState<File | null>(null);
   const [form, setForm] = useState({ name:'', ticker:'', description:'', website:'', twitter:'', telegram:'', discord:'', initialBuy:'0' });
   const fileRef = useRef<HTMLInputElement>(null);
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const uploadImage = async (file: File): Promise<string> => {
+    const buf = await file.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const res = await fetch('/api/upload-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, mimeType: file.type, base64 }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(err.error || 'Image upload failed');
+    }
+    const { ipfsUrl } = await res.json();
+    return ipfsUrl; // e.g. "ipfs://QmXXX"
+  };
 
   const handleLaunch = async () => {
     if (deployBusy) return;
     if (!connected || !api) { setDeployError('Connect your wallet first.'); return; }
     setDeployError(null); setDeployPhase('proving'); setDeployBusy(true);
     try {
+      // Upload image first if one was selected
+      let imageUri = 'ipfs://';
+      if (iconFile) {
+        try {
+          imageUri = await uploadImage(iconFile);
+        } catch (e: any) {
+          console.warn('Image upload failed, continuing without image:', e.message);
+        }
+      }
+
       const { deployBondingCurveViaWallet } = await import('@/lib/contractWiring');
-      const result = await deployBondingCurveViaWallet({ name: form.name, ticker: form.ticker, description: form.description, imageUri: 'ipfs://' }, api, setDeployPhase);
+      const result = await deployBondingCurveViaWallet({ name: form.name, ticker: form.ticker, description: form.description, imageUri }, api, setDeployPhase);
       setDeployPhase('saving');
       await fetch('/api/tokens', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address: result.contractAddress, name: form.name, ticker: form.ticker, description: form.description, imageUri: 'ipfs://', creatorAddr: 'unknown', txHash: result.txId }),
+        body: JSON.stringify({ address: result.contractAddress, name: form.name, ticker: form.ticker, description: form.description, imageUri, creatorAddr: 'unknown', txHash: result.txId }),
       });
       window.location.href = '/token/' + result.contractAddress;
     } catch (err: unknown) {
@@ -115,7 +142,7 @@ export default function LaunchPage() {
                     </>
                   )}
                 </div>
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = ev => setIconPreview(typeof ev.target?.result === 'string' ? ev.target.result : null); r.readAsDataURL(f); }}} />
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) { setIconFile(f); const r = new FileReader(); r.onload = ev => setIconPreview(typeof ev.target?.result === 'string' ? ev.target.result : null); r.readAsDataURL(f); }}} />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
