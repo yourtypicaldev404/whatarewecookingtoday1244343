@@ -25,6 +25,25 @@ import { CompiledContract } from '@midnight-ntwrk/compact-js';
 
 globalThis.WebSocket = WebSocket;
 
+// ── Prevent Midnight SDK WebSocket disconnects from crashing the process ──
+process.on('uncaughtException', (err) => {
+  const msg = err?.message ?? '';
+  // Suppress known SDK WS disconnects — they're recoverable
+  if (msg.includes('disconnected') || msg.includes('1000') || msg.includes('WebSocket') || msg.includes('ECONNRESET')) {
+    console.warn('[process] Suppressed uncaught exception (WS disconnect):', msg);
+    return;
+  }
+  console.error('[process] Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  const msg = reason?.message ?? String(reason);
+  if (msg.includes('disconnected') || msg.includes('1000') || msg.includes('WebSocket') || msg.includes('ECONNRESET')) {
+    console.warn('[process] Suppressed unhandled rejection (WS disconnect):', msg);
+    return;
+  }
+  console.error('[process] Unhandled rejection:', reason);
+});
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** Load `.env` then `.env.local` (local overrides). Never replaces vars already set by the shell (e.g. Railway). */
@@ -175,29 +194,33 @@ function deriveShieldedKeysFromSeed(seed) {
 }
 const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
 
-// Warm wallet — synced once at startup, reused per deploy so we skip re-sync wait.
-let _walletReady = false;
+// Wallet — built on-demand per deploy/signed request, not kept warm.
+// The Midnight SDK opens persistent WS connections that crash the process on disconnect,
+// so we build fresh per request and stop the wallet after use.
 let _walletPromise = null;
-let _walletInstance = null;
 
 function ensureWalletReady() {
-  if (_walletReady) return Promise.resolve(_walletInstance);
-  if (!_walletPromise) {
-    _walletPromise = buildWallet(SEED).then(result => {
-      _walletInstance = result;
-      _walletReady = true;
-      console.log('[warm-wallet] ready');
-      return result;
-    }).catch(err => {
-      _walletPromise = null;
-      console.error('[warm-wallet] init failed:', err.message);
-      throw err;
-    });
-  }
+  if (_walletPromise) return _walletPromise;
+  console.log('[wallet] Building wallet on-demand...');
+  _walletPromise = buildWallet(SEED).then(result => {
+    console.log('[wallet] ready');
+    return result;
+  }).catch(err => {
+    _walletPromise = null;
+    console.error('[wallet] init failed:', err.message);
+    throw err;
+  });
   return _walletPromise;
 }
-// Start warming immediately — non-blocking, errors logged.
-ensureWalletReady().catch(err => console.error('[warm-wallet] startup error:', err.message));
+
+function resetWallet() {
+  if (_walletPromise) {
+    _walletPromise.then(({ wallet }) => {
+      try { wallet.stop(); } catch {}
+    }).catch(() => {});
+  }
+  _walletPromise = null;
+}
 
 function deriveKeys(seed) {
   const hd = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
@@ -523,6 +546,7 @@ app.post('/deploy/signed', async (req, res) => {
     res.json({ contractAddress, txId, creatorKey: verifyingKey });
   } catch (err) {
     console.error('[deploy/signed] failed:', err.message, '\n', err.stack);
+    resetWallet(); // Force rebuild on next request
     res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
   }
 });
