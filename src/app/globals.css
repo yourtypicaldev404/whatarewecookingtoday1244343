@@ -111,7 +111,7 @@
   --mono: 'JetBrains Mono', monospace;
   --nav-h: 0px;
   --ticker-h: 47px;
-  --panel-w: 400px;
+  --panel-w: 360px;
 
   /* Extra compat */
   --neon-violet: var(--primary-color);
@@ -170,10 +170,11 @@ a { color: inherit; text-decoration: none; }
 .app-main {
   flex: 1;
   margin-left: var(--sidebar-w);
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   transition: margin-left var(--transition-normal);
+  overflow: hidden;
 }
 .app-main.collapsed {
   margin-left: var(--sidebar-collapsed-w);
@@ -386,6 +387,7 @@ a { color: inherit; text-decoration: none; }
 .top-wallet-bar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--s-12);
   padding: var(--s-8) var(--s-16);
   background: var(--bg-secondary);
@@ -448,12 +450,13 @@ a { color: inherit; text-decoration: none; }
 .ticker-item .dn { color: var(--danger); }
 
 /* ── Discover layout ── */
-.discover-wrap { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+.discover-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
 .discover-toolbar {
-  display: flex; align-items: center; gap: var(--s-12);
+  display: flex; align-items: center; gap: var(--s-8) var(--s-12);
   padding: var(--s-12) var(--s-16); border-bottom: 1px solid var(--border-color);
   background: var(--bg-secondary); flex-shrink: 0; flex-wrap: wrap;
 }
+.discover-toolbar .spacer { flex: 1; min-width: 0; }
 .discover-body { flex: 1; overflow-y: auto; }
 
 /* ── Filter / tab btns ── */
@@ -497,7 +500,8 @@ a { color: inherit; text-decoration: none; }
 .token-page {
   display: grid;
   grid-template-columns: 1fr var(--panel-w);
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 .token-main { overflow-y: auto; display: flex; flex-direction: column; }
@@ -701,6 +705,16 @@ input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
   .token-sidebar { border-left: none; border-top: 1px solid var(--border-color); height: auto; }
   .sidebar { display: none; }
   .app-main { margin-left: 0 !important; }
+  .trending-card { flex: 0 0 200px; }
+}
+@media (max-width: 600px) {
+  .discover-toolbar { padding: var(--s-8) var(--s-12); }
+  .top-wallet-bar { padding: var(--s-4) var(--s-12); }
+  .trending-section { padding: var(--s-8) 0; }
+  .trending-header { padding: 0 var(--s-12); }
+  .trending-scroll { padding: 0 var(--s-12); gap: var(--s-8); }
+  .trending-card { flex: 0 0 180px; padding: var(--s-8); }
+  .mosaic-card { padding: var(--s-12); }
 }
 
 /* ── ZK Overlay spinner / progress ── */
@@ -741,7 +755,7 @@ input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
 /* ── Mosaic grid ── */
 .mosaic-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(390px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: var(--s-12);
   width: 100%;
 }

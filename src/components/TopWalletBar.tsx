@@ -7,7 +7,6 @@ export default function TopWalletBar() {
 
   return (
     <div className="top-wallet-bar">
-      <div style={{ flex: 1 }} />
       {connected ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span className="pulse-dot" />

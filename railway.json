@@ -4,7 +4,7 @@
     "buildCommand": "npm install"
   },
   "deploy": {
-    "startCommand": "node deploy-server.mjs",
+    "startCommand": "node --max-old-space-size=4096 deploy-server.mjs",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 120
   }

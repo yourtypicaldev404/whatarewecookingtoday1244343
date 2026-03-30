@@ -147,7 +147,7 @@ function HomePageInner() {
   const DOUBLED = [...TICKER_ITEMS, ...TICKER_ITEMS];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* Ticker */}
       <div className="ticker-strip">
         <div className="ticker-scroll">
@@ -189,16 +189,17 @@ function HomePageInner() {
           ))}
         </div>
 
-        <div style={{ flex: 1 }} />
+        <div className="spacer" />
 
         <input
-          style={{ height: 42, width: 286, background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 16px', fontSize: 16, color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font)', transition: 'var(--transition-fast)' }}
+          className="nav-search"
+          style={{ height: 42, width: '100%', maxWidth: 260, minWidth: 140, background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 16px', fontSize: 14, color: 'var(--text-primary)', outline: 'none', fontFamily: 'var(--font)', transition: 'var(--transition-fast)', flex: '1 1 140px' }}
           placeholder="Search..."
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
         <Link href="/launch">
-          <button className="btn btn-primary" style={{ height: 42, fontSize: 16, padding: '0 21px', borderRadius: 'var(--radius-pill)' }}>New token</button>
+          <button className="btn btn-primary" style={{ height: 42, fontSize: 14, padding: '0 18px', borderRadius: 'var(--radius-pill)', whiteSpace: 'nowrap' }}>New token</button>
         </Link>
       </div>
 

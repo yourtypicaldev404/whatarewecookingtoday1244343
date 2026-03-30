@@ -204,7 +204,7 @@ export default function TokenPage() {
   }, [amount, connected, api, connect, tradeMode, address, token]);
 
   if (!token) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-tertiary)', fontFamily: 'var(--mono)', fontSize: 17 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-tertiary)', fontFamily: 'var(--mono)', fontSize: 17 }}>
       Loading...
     </div>
   );
@@ -232,7 +232,7 @@ export default function TokenPage() {
   }));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <ZkWorkOverlay
         open={tradeOpen}
         variant="trade"

@@ -68,7 +68,7 @@ export default function LaunchPage() {
   );
 
   return (
-    <div style={{ minHeight: '100vh' }}>
+    <div style={{ flex: 1, overflowY: 'auto' }}>
       <ZkWorkOverlay
         open={deployBusy} error={deployError}
         variant={deployPhase === 'saving' || deployPhase === 'submitting' ? 'saving' : 'proving'}
