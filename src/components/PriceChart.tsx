@@ -20,15 +20,15 @@ export default function PriceChart({ ticker }: { ticker: string }) {
           vertLines: { color: 'rgba(255,255,255,0.04)', style: LineStyle.Dotted },
           horzLines: { color: 'rgba(255,255,255,0.04)', style: LineStyle.Dotted },
         },
-        crosshair: { vertLine: { color: '#8b5cf6' }, horzLine: { color: '#8b5cf6' } },
+        crosshair: { vertLine: { color: '#4ed16b' }, horzLine: { color: '#4ed16b' } },
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)' },
         timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true },
       });
 
       const series = chart.addAreaSeries({
-        lineColor: '#8b5cf6',
-        topColor: 'rgba(139,92,246,0.3)',
-        bottomColor: 'rgba(139,92,246,0.0)',
+        lineColor: '#4ed16b',
+        topColor: 'rgba(78,209,107,0.2)',
+        bottomColor: 'rgba(78,209,107,0.0)',
         lineWidth: 2,
       });
 

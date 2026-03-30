@@ -5,10 +5,6 @@ import { useWallet } from '@/lib/wallet/WalletProvider';
 import { getWalletErrorPresentation } from '@/lib/wallet/walletErrorPresentation';
 import { getLaceExtensionStoreUrl } from '@/lib/wallet/laceStoreUrl';
 
-/**
- * Soft overlay for all wallet errors (network mismatch, install, rejection, etc.).
- * Rendered once inside WalletProvider.
- */
 export default function WalletErrorModal() {
   const { error, clearWalletError } = useWallet();
 
@@ -42,8 +38,8 @@ export default function WalletErrorModal() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 24,
-        background: 'rgba(3, 4, 8, 0.72)',
-        backdropFilter: 'blur(12px)',
+        background: 'rgba(0, 0, 0, 0.55)',
+        backdropFilter: 'blur(8px)',
       }}
       onClick={e => {
         if (e.target === e.currentTarget) onClose();
@@ -52,24 +48,24 @@ export default function WalletErrorModal() {
       <div
         style={{
           width: '100%',
-          maxWidth: 440,
-          borderRadius: 16,
-          padding: '28px 26px 22px',
-          background: 'linear-gradient(165deg, rgba(22,22,32,0.98) 0%, rgba(10,10,16,0.99) 100%)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(139,92,246,0.12)',
+          maxWidth: 460,
+          borderRadius: 'var(--radius-lg)',
+          padding: '28px 28px 24px',
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          boxShadow: '0 40px 80px -20px rgba(0,0,0,0.5)',
         }}
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
           <h2
             id="wallet-error-title"
             style={{
-              fontFamily: 'var(--font-display)',
+              fontFamily: 'var(--font)',
               fontWeight: 700,
               fontSize: 20,
-              letterSpacing: '-0.03em',
-              color: '#fff',
+              letterSpacing: '-0.02em',
+              color: 'var(--text-primary)',
               margin: 0,
               lineHeight: 1.25,
             }}
@@ -85,9 +81,9 @@ export default function WalletErrorModal() {
               flexShrink: 0,
               width: 36,
               height: 36,
-              borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.1)',
-              background: 'rgba(255,255,255,0.04)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-tertiary)',
               color: 'var(--text-secondary)',
               cursor: 'pointer',
               fontSize: 18,
@@ -100,10 +96,10 @@ export default function WalletErrorModal() {
 
         <p
           style={{
-            fontSize: 15,
+            fontSize: 14,
             lineHeight: 1.55,
             color: 'var(--text-secondary)',
-            margin: '0 0 22px',
+            margin: '0 0 24px',
           }}
         >
           {body}
@@ -118,15 +114,15 @@ export default function WalletErrorModal() {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                padding: '10px 18px',
-                borderRadius: 10,
-                background: 'rgba(255,255,255,0.06)',
-                color: '#e8e6f0',
-                fontFamily: 'var(--font-display)',
+                padding: '10px 20px',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-tertiary)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font)',
                 fontWeight: 600,
                 fontSize: 14,
                 textDecoration: 'none',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid var(--border-color)',
               }}
             >
               Get Lace
@@ -135,16 +131,12 @@ export default function WalletErrorModal() {
           <button
             type="button"
             onClick={onClose}
+            className="btn btn-primary"
             style={{
-              padding: '10px 22px',
-              borderRadius: 10,
-              border: 'none',
-              background: 'linear-gradient(135deg, var(--neon-violet), #6d28d9)',
-              color: '#fff',
-              fontFamily: 'var(--font-display)',
-              fontWeight: 600,
+              padding: '10px 24px',
+              borderRadius: 'var(--radius-md)',
+              height: 'auto',
               fontSize: 14,
-              cursor: 'pointer',
             }}
           >
             Close
