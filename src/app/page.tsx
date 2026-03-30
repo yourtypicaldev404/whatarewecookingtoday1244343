@@ -50,99 +50,63 @@ function TokenCard({ token }: { token: Token }) {
   const ada = BigInt(token.adaReserve ?? '0');
   const tok = BigInt(token.tokenReserve ?? '999000000000000');
   const prog = bondingProgress(ada);
-  const price = spotPrice(ada, tok);
   const addr = (token.address ?? '') as string;
 
   return (
     <Link href={`/token/${token.address}`} style={{ textDecoration: 'none' }}>
-      <div style={{
-        position: 'relative',
-        background: 'var(--bg-secondary)',
-        border: '1px solid var(--border-color)',
-        borderRadius: 10,
-        padding: '16px 18px',
-        cursor: 'pointer',
-        transition: 'transform .2s ease, border-color .2s ease, box-shadow .2s ease, background-color .2s ease',
-        overflow: 'hidden',
-      }}
-      onMouseEnter={e => {
-        const el = e.currentTarget;
-        el.style.transform = 'translateY(-3px)';
-        el.style.borderColor = 'var(--primary-color)';
-        el.style.boxShadow = '0 4px 12px rgba(78,209,107,0.15)';
-        el.style.backgroundColor = '#232325';
-      }}
-      onMouseLeave={e => {
-        const el = e.currentTarget;
-        el.style.transform = '';
-        el.style.borderColor = 'var(--border-color)';
-        el.style.boxShadow = '';
-        el.style.backgroundColor = 'var(--bg-secondary)';
-      }}
-      >
-        {/* Top row: avatar + name + mcap */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-          <TokenAvatar token={token} size={48} />
+      <div className="mosaic-card">
+        {/* Avatar + mcap */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+          <TokenAvatar token={token} size={52} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-              <span style={{ fontWeight: 700, fontSize: 16, color: 'var(--text-primary)' }}>{token.name}</span>
-              {token.graduated && <span className="badge badge-green">Graduated</span>}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--mono)', fontSize: 12 }}>
-              <span style={{ color: 'var(--primary-color)', fontWeight: 600 }}>${token.ticker}</span>
-              <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-              <span style={{ color: 'var(--text-tertiary)' }}>{addr.slice(0, 8)}...{addr.slice(-4)}</span>
-              <span style={{ color: 'var(--text-tertiary)' }}>·</span>
-              <span style={{ color: 'var(--text-tertiary)' }}>{timeAgo(token.lastActivityAt ?? token.deployedAt ?? 0)}</span>
-            </div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-primary)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{token.name}</div>
+            <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--primary-color)', fontWeight: 600 }}>${token.ticker}</div>
           </div>
-          <div style={{ textAlign: 'right', flexShrink: 0 }}>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 700, color: 'var(--primary-color)' }}>{fmtMcap(ada)}</div>
-            <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>mcap</div>
-          </div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 15, fontWeight: 700, color: 'var(--primary-color)', flexShrink: 0 }}>{fmtMcap(ada)}</div>
         </div>
 
         {/* Description */}
         {token.description && (
           <p style={{
-            fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14,
+            fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, lineHeight: 1.5,
             overflow: 'hidden', display: '-webkit-box',
-            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.5,
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
           }}>{token.description}</p>
         )}
 
         {/* Progress bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.06em', whiteSpace: 'nowrap' }}>Bonding curve</span>
-          <div style={{ flex: 1, height: 4, background: 'var(--bg-4)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Curve</span>
+            <span style={{ fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, color: prog > 80 ? 'var(--primary-color)' : 'var(--text-tertiary)' }}>{prog}%</span>
+          </div>
+          <div style={{ height: 4, background: 'var(--bg-4)', borderRadius: 2, overflow: 'hidden' }}>
             <div style={{ height: '100%', width: `${prog}%`, background: prog > 80 ? 'var(--primary-color)' : prog > 40 ? 'var(--warning)' : 'var(--text-tertiary)', borderRadius: 2, transition: 'width .5s ease' }} />
           </div>
-          <span style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: prog > 80 ? 'var(--primary-color)' : 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{prog}%</span>
         </div>
 
-        {/* Stats row */}
-        <div style={{ display: 'flex', gap: 20, alignItems: 'center', paddingTop: 12, borderTop: '1px solid var(--border-color)' }}>
-          {[
-            { label: 'Price', value: fmtDust(price, 6) + ' D' },
-            { label: 'Volume', value: fmtDust(BigInt(token.totalVolume ?? '0'), 0) },
-            { label: 'Txns', value: String(token.txCount ?? 0) },
-            { label: 'Holders', value: String(token.holderCount ?? 1) },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em' }}>{label}</span>
-              <span style={{ fontFamily: 'var(--mono)', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{value}</span>
-            </div>
-          ))}
-          <div style={{ marginLeft: 'auto' }}>
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: 12, padding: '6px 18px', borderRadius: 'var(--radius-pill)' }}
-              onClick={e => { e.preventDefault(); e.stopPropagation(); }}
-            >
-              Buy
-            </button>
+        {/* Stats + age */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', gap: 14 }}>
+            {[
+              { l: 'Vol', v: fmtDust(BigInt(token.totalVolume ?? '0'), 0) },
+              { l: 'Txns', v: String(token.txCount ?? 0) },
+              { l: 'Hldr', v: String(token.holderCount ?? 1) },
+            ].map(s => (
+              <div key={s.l}>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 9, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.06em' }}>{s.l}</div>
+                <div style={{ fontFamily: 'var(--mono)', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{s.v}</div>
+              </div>
+            ))}
           </div>
+          <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text-tertiary)' }}>{timeAgo(token.lastActivityAt ?? token.deployedAt ?? 0)}</span>
         </div>
+
+        {token.graduated && (
+          <div style={{ position: 'absolute', top: 10, right: 10 }}>
+            <span className="badge badge-green">Graduated</span>
+          </div>
+        )}
       </div>
     </Link>
   );
@@ -238,20 +202,20 @@ function HomePageInner() {
         </Link>
       </div>
 
-      {/* Card list */}
+      {/* Mosaic grid */}
       {loading ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>Loading...</div>
       ) : (
         <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--s-16)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 900, margin: '0 auto' }}>
-            {filtered.length === 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
-                {filter === 'bonded' ? 'No graduated tokens yet' : 'No tokens found'}
-              </div>
-            ) : (
-              filtered.map(t => <TokenCard key={t.address} token={t} />)
-            )}
-          </div>
+          {filtered.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
+              {filter === 'bonded' ? 'No graduated tokens yet' : 'No tokens found'}
+            </div>
+          ) : (
+            <div className="mosaic-grid">
+              {filtered.map(t => <TokenCard key={t.address} token={t} />)}
+            </div>
+          )}
         </div>
       )}
     </div>
