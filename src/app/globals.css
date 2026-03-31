@@ -223,17 +223,12 @@ a { color: inherit; text-decoration: none; }
   font-style: normal;
 }
 .sidebar-beta-badge {
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #0070f3;
-  border: 1px solid #0070f3;
-  border-radius: 4px;
-  padding: 1px 5px;
-  margin-left: 6px;
-  vertical-align: middle;
-  white-space: nowrap;
-  line-height: 1.6;
+  font-size: 0.45rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.7);
+  vertical-align: super;
+  margin-left: 1px;
 }
 .sidebar.collapsed .sidebar-beta-badge { display: none; }
 .sidebar-toggle {

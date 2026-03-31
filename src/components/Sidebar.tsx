@@ -76,9 +76,8 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
             <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-8)', textDecoration: 'none', flex: 1, minWidth: 0 }}>
               <img src="/logo.png" alt="night.fun" className="sidebar-brand-icon" />
               <span className="sidebar-brand-text">
-                night<em>.fun</em>
+                night<em>.fun</em><sup className="sidebar-beta-badge">BETA</sup>
               </span>
-              <span className="sidebar-beta-badge">BETA</span>
             </Link>
             <button type="button" className="sidebar-toggle" onClick={onToggle} aria-label="Collapse sidebar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
