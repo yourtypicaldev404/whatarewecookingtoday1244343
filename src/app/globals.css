@@ -805,7 +805,7 @@ input::placeholder, textarea::placeholder { color: var(--text-tertiary); }
 
 .mosaic-card {
   position: relative;
-  background: var(--bg-secondary);
+  background: rgba(10, 10, 14, 0.9);
   border: 1px solid var(--border-color);
   border-radius: 13px;
   padding: 21px;
