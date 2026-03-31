@@ -72,19 +72,12 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
             <img src="/logo.png" alt="night.fun" className="sidebar-brand-icon" />
           </button>
         ) : (
-          <>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-8)', textDecoration: 'none', flex: 1, minWidth: 0 }}>
-              <img src="/logo.png" alt="night.fun" className="sidebar-brand-icon" />
-              <span className="sidebar-brand-text">
-                night<em>.fun</em><sup className="sidebar-beta-badge">BETA</sup>
-              </span>
-            </Link>
-            <button type="button" className="sidebar-toggle" onClick={onToggle} aria-label="Collapse sidebar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-          </>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-8)', textDecoration: 'none', flex: 1, minWidth: 0 }}>
+            <img src="/logo.png" alt="night.fun" className="sidebar-brand-icon" />
+            <span className="sidebar-brand-text">
+              night<em>.fun</em><sup className="sidebar-beta-badge">BETA</sup>
+            </span>
+          </Link>
         )}
       </div>
 
@@ -124,6 +117,13 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           </svg>
         </a>
       </div>
+
+      {/* Collapse/expand toggle — bottom right */}
+      <button type="button" className="sidebar-toggle" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d={collapsed ? 'M9 18l6-6-6-6' : 'M15 18l-6-6 6-6'} />
+        </svg>
+      </button>
     </aside>
   );
 }

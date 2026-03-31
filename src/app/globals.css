@@ -208,7 +208,7 @@ a { color: inherit; text-decoration: none; }
   min-height: var(--s-48);
 }
 .sidebar-brand-icon {
-  width: 96px; height: 96px; min-width: 96px;
+  width: 86px; height: 86px; min-width: 86px;
   border-radius: var(--radius-sm);
   object-fit: contain;
 }
@@ -243,7 +243,9 @@ a { color: inherit; text-decoration: none; }
   cursor: pointer;
   transition: var(--transition-fast);
   flex-shrink: 0;
-  margin-left: auto;
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
 }
 .sidebar-toggle:hover {
   border-color: var(--border-color-hover);
@@ -269,7 +271,7 @@ a { color: inherit; text-decoration: none; }
   padding: var(--s-12) var(--s-4);
 }
 .sidebar.collapsed .sidebar-brand-icon {
-  width: 96px; height: 96px; min-width: 96px;
+  width: 86px; height: 86px; min-width: 86px;
 }
 
 .sidebar-nav {
