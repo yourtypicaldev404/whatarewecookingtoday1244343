@@ -89,13 +89,13 @@ export default function TokenPage() {
           vertLines: { color: 'rgba(255,255,255,0.03)', style: LineStyle.Dotted },
           horzLines: { color: 'rgba(255,255,255,0.03)', style: LineStyle.Dotted },
         },
-        crosshair: { vertLine: { color: '#4ed16b', width: 1 }, horzLine: { color: '#4ed16b', width: 1 } },
+        crosshair: { vertLine: { color: '#ffffff', width: 1 }, horzLine: { color: '#ffffff', width: 1 } },
         rightPriceScale: { borderColor: 'rgba(255,255,255,0.05)' },
         timeScale: { borderColor: 'rgba(255,255,255,0.05)', timeVisible: true },
       });
       const area = chart.addAreaSeries({
-        lineColor: '#4ed16b', topColor: 'rgba(78,209,107,0.12)',
-        bottomColor: 'rgba(78,209,107,0)', lineWidth: 1.5,
+        lineColor: '#ffffff', topColor: 'rgba(255,255,255,0.08)',
+        bottomColor: 'rgba(255,255,255,0)', lineWidth: 1.5,
       });
       const now = Math.floor(Date.now() / 1000);
       let v = 0.000001;
