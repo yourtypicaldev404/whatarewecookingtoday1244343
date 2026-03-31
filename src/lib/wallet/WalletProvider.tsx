@@ -11,7 +11,10 @@
  * Lace wallet injects as window.midnight.mnLace (fallback)
  */
 
-const PREFERRED_WALLET_ID = '1am';
+const WALLET_DISPLAY_NAMES: Record<string, string> = {
+  '1am': '1AM',
+  'mnLace': 'Lace',
+};
 
 import {
   createContext, useContext, useState, useCallback, useEffect, useRef,
@@ -104,11 +107,14 @@ export interface WalletState {
   error:            string | null;
 }
 
+export type DetectedWallet = { id: string; name: string };
+
 interface WalletActions {
   connect(walletId?: string): Promise<void>;
   disconnect():               void;
   refreshBalances():          Promise<void>;
   clearWalletError():         void;
+  getAvailableWallets():      DetectedWallet[];
   api: ConnectedAPI | null;
 }
 
@@ -149,10 +155,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         throw new Error('No Midnight wallets detected.');
       }
 
-      // Pick preferred wallet: explicit arg > 1AM > first compatible
-      const pickId = preferredId ?? PREFERRED_WALLET_ID;
-      const [walletId, walletAPI] = pickId && window.midnight[pickId] && isInitialAPI(window.midnight[pickId])
-        ? [pickId, window.midnight[pickId]]
+      // Pick explicit wallet or first compatible
+      const [walletId, walletAPI] = preferredId && window.midnight[preferredId] && isInitialAPI(window.midnight[preferredId])
+        ? [preferredId, window.midnight[preferredId]]
         : wallets[0];
 
       const connected = await walletAPI.connect(PUBLIC_NETWORK_ID);
@@ -232,6 +237,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('nightfun-walletId');
   }, []);
 
+  const getAvailableWallets = useCallback((): DetectedWallet[] => {
+    if (typeof window === 'undefined' || !window.midnight) return [];
+    return Object.entries(window.midnight)
+      .filter(([, w]) => isInitialAPI(w))
+      .map(([id]) => ({ id, name: WALLET_DISPLAY_NAMES[id] ?? id }));
+  }, []);
+
   const refreshBalances = useCallback(async () => {
     if (!connectedAPI) return;
     const [dustRaw, tokenBalances] = await Promise.all([
@@ -249,6 +261,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       disconnect,
       refreshBalances,
       clearWalletError,
+      getAvailableWallets,
       api: connectedAPI,
     }}>
       {children}

@@ -332,14 +332,18 @@ export async function finalizeTradeInWallet(
 ): Promise<Pick<TradeResult, 'txId' | 'walletMs'>> {
   const w0 = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
-  const balanced = await wallet.balanceUnsealedTransaction(provedTxHex);
+  const balanceResult = await wallet.balanceUnsealedTransaction(provedTxHex);
+  // Handle different wallet response shapes (Lace returns {tx}, 1AM may return string)
+  const signedTx = typeof balanceResult === 'string'
+    ? balanceResult
+    : (balanceResult as any)?.tx ?? (balanceResult as any)?.transaction ?? balanceResult;
   let txId: string;
   try {
-    txId = txIdFromBalancedHex(balanced.tx);
+    txId = txIdFromBalancedHex(typeof signedTx === 'string' ? signedTx : '');
   } catch {
     txId = `pending-${Date.now()}`;
   }
-  wallet.submitTransaction(balanced.tx).catch(e => console.error('submitTransaction error:', e));
+  wallet.submitTransaction(signedTx).catch(e => console.error('submitTransaction error:', e));
   const walletMs = Math.round(
     (typeof performance !== 'undefined' ? performance.now() : Date.now()) - w0,
   );

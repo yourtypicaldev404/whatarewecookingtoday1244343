@@ -161,8 +161,31 @@ export default function TokenPage() {
 
       setTradePhase('wallet');
 
-      const balanced = await api.balanceUnsealedTransaction(unprovenTxHex);
-      api.submitTransaction(balanced.tx).catch(e => console.error('submit error:', e));
+      console.log('[trade] Calling balanceUnsealedTransaction...');
+      let balanceResult: any;
+      try {
+        balanceResult = await api.balanceUnsealedTransaction(unprovenTxHex);
+      } catch (balErr: any) {
+        console.error('[trade] balanceUnsealedTransaction failed:', balErr);
+        throw new Error(`Wallet failed to balance transaction: ${balErr?.message || balErr}`);
+      }
+
+      // Handle different wallet response shapes
+      const signedTxHex = typeof balanceResult === 'string'
+        ? balanceResult
+        : balanceResult?.tx ?? balanceResult?.transaction ?? balanceResult;
+
+      if (!signedTxHex || typeof signedTxHex !== 'string') {
+        console.error('[trade] Unexpected balanceUnsealedTransaction result:', balanceResult);
+        throw new Error('Wallet returned no signed transaction. Check wallet compatibility.');
+      }
+
+      console.log('[trade] Submitting tx...');
+      try {
+        await api.submitTransaction(signedTxHex);
+      } catch (submitErr: any) {
+        console.error('[trade] submitTransaction error (non-fatal):', submitErr);
+      }
 
       let txId = `pending-${Date.now()}`;
       try {
@@ -173,7 +196,7 @@ export default function TokenPage() {
           for (let i = 0; i < b.length; i++) b[i] = parseInt(c.slice(i*2,i*2+2),16);
           return b;
         };
-        const tx = (ledger as any).Transaction?.deserialize('signature','proof','binding', hexToBytes(balanced.tx));
+        const tx = (ledger as any).Transaction?.deserialize('signature','proof','binding', hexToBytes(signedTxHex));
         txId = tx?.identifiers?.()?.[0] ?? txId;
       } catch { /* best effort */ }
 
