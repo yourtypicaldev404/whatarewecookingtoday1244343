@@ -104,6 +104,15 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
         ))}
       </nav>
 
+      {/* Collapse/expand toggle */}
+      <div className="sidebar-toggle-wrap">
+        <button type="button" className="sidebar-toggle" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d={collapsed ? 'M9 18l6-6-6-6' : 'M15 18l-6-6 6-6'} />
+          </svg>
+        </button>
+      </div>
+
       {/* Social links */}
       <div className="sidebar-social-links">
         <a href="https://x.com/nightdotfun" target="_blank" rel="noopener noreferrer" className="sidebar-social-link" aria-label="Twitter / X">
@@ -117,13 +126,6 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
           </svg>
         </a>
       </div>
-
-      {/* Collapse/expand toggle — bottom right */}
-      <button type="button" className="sidebar-toggle" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d={collapsed ? 'M9 18l6-6-6-6' : 'M15 18l-6-6 6-6'} />
-        </svg>
-      </button>
     </aside>
   );
 }
