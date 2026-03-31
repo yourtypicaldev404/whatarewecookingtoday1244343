@@ -11,10 +11,6 @@
  * Lace wallet injects as window.midnight.mnLace (fallback)
  */
 
-const WALLET_DISPLAY_NAMES: Record<string, string> = {
-  '1am': '1AM',
-  'mnLace': 'Lace',
-};
 
 import {
   createContext, useContext, useState, useCallback, useEffect, useRef,
@@ -98,6 +94,8 @@ function parseDustAddress(r: unknown): string {
 export interface WalletState {
   connected:        boolean;
   walletId:         string | null;
+  walletName:       string | null;
+  walletIcon:       string | null;
   unshieldedAddr:   string | null;
   dustAddr:         string | null;
   dustBalance:      bigint;
@@ -107,7 +105,7 @@ export interface WalletState {
   error:            string | null;
 }
 
-export type DetectedWallet = { id: string; name: string };
+export type DetectedWallet = { id: string; name: string; icon: string };
 
 interface WalletActions {
   connect(walletId?: string): Promise<void>;
@@ -130,6 +128,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<WalletState>({
     connected:      false,
     walletId:       null,
+    walletName:     null,
+    walletIcon:     null,
     unshieldedAddr: null,
     dustAddr:       null,
     dustBalance:    0n,
@@ -156,9 +156,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       }
 
       // Pick explicit wallet or first compatible
-      const [walletId, walletAPI] = preferredId && window.midnight[preferredId] && isInitialAPI(window.midnight[preferredId])
-        ? [preferredId, window.midnight[preferredId]]
-        : wallets[0];
+      const [walletId, walletInitial] = preferredId && window.midnight[preferredId] && isInitialAPI(window.midnight[preferredId])
+        ? [preferredId, window.midnight[preferredId] as InitialAPI]
+        : [wallets[0][0], wallets[0][1] as InitialAPI];
+      const walletAPI = walletInitial;
 
       const connected = await walletAPI.connect(PUBLIC_NETWORK_ID);
 
@@ -195,6 +196,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setState({
         connected:      true,
         walletId,
+        walletName:     walletInitial.name || walletId,
+        walletIcon:     walletInitial.icon || null,
         unshieldedAddr: parseUnshieldedAddress(unshieldedAddr),
         dustAddr:       parseDustAddress(dustAddr),
         dustBalance,
@@ -230,9 +233,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const disconnect = useCallback(() => {
     setConnectedAPI(null);
     setState({
-      connected: false, walletId: null, unshieldedAddr: null,
-      dustAddr: null, dustBalance: BigInt(0), tokenBalances: {},
-      serviceConfig: null, connecting: false, error: null,
+      connected: false, walletId: null, walletName: null, walletIcon: null,
+      unshieldedAddr: null, dustAddr: null, dustBalance: BigInt(0),
+      tokenBalances: {}, serviceConfig: null, connecting: false, error: null,
     });
     localStorage.removeItem('nightfun-walletId');
   }, []);
@@ -241,7 +244,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined' || !window.midnight) return [];
     return Object.entries(window.midnight)
       .filter(([, w]) => isInitialAPI(w))
-      .map(([id]) => ({ id, name: WALLET_DISPLAY_NAMES[id] ?? id }));
+      .map(([id, w]) => {
+        const api = w as InitialAPI;
+        return {
+          id,
+          name: api.name || id,
+          icon: api.icon || '',
+        };
+      });
   }, []);
 
   const refreshBalances = useCallback(async () => {

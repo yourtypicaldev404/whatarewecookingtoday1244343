@@ -5,7 +5,7 @@ import { useWallet, shortAddr } from '@/lib/wallet/WalletProvider';
 import type { DetectedWallet } from '@/lib/wallet/WalletProvider';
 
 export default function TopWalletBar() {
-  const { connected, connecting, connect, disconnect, unshieldedAddr, walletId, getAvailableWallets } = useWallet();
+  const { connected, connecting, connect, disconnect, unshieldedAddr, walletName, walletIcon, getAvailableWallets } = useWallet();
   const [showPicker, setShowPicker] = useState(false);
   const [wallets, setWallets] = useState<DetectedWallet[]>([]);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -27,16 +27,13 @@ export default function TopWalletBar() {
     setWallets(detected);
 
     if (detected.length === 0) {
-      // No wallets — trigger connect to show error
       void connect();
       return;
     }
     if (detected.length === 1) {
-      // Only one wallet — connect directly
       void connect(detected[0].id);
       return;
     }
-    // Multiple wallets — show picker
     setShowPicker(true);
   };
 
@@ -49,10 +46,16 @@ export default function TopWalletBar() {
     <div className="top-wallet-bar">
       {connected ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {walletIcon && (
+            <img
+              src={walletIcon}
+              alt=""
+              style={{ width: 22, height: 22, borderRadius: 4 }}
+            />
+          )}
           <span className="pulse-dot" />
           <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-secondary)' }}>
-            {walletId ? `${walletId === 'mnLace' ? 'Lace' : walletId === '1am' ? '1AM' : walletId} · ` : ''}
-            {shortAddr(unshieldedAddr)}
+            {walletName ? `${walletName} · ` : ''}{shortAddr(unshieldedAddr)}
           </span>
           <button
             type="button"
@@ -85,9 +88,17 @@ export default function TopWalletBar() {
                   className="wallet-picker-item"
                   onClick={() => handlePickWallet(w.id)}
                 >
-                  <span style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
-                    {w.name.charAt(0)}
-                  </span>
+                  {w.icon ? (
+                    <img
+                      src={w.icon}
+                      alt=""
+                      style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', flexShrink: 0 }}
+                    />
+                  ) : (
+                    <span style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0, color: 'var(--text-secondary)' }}>
+                      {w.name.charAt(0)}
+                    </span>
+                  )}
                   <span>{w.name}</span>
                 </button>
               ))}
