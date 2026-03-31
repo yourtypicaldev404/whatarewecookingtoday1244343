@@ -153,8 +153,18 @@ const SEED      = process.env.DEPLOYER_SEED ?? '971da3750a45a3812c732f8b70ccb9d8
 const TREASURY  = process.env.TREASURY_SEED ?? SEED;
 const PORT      = process.env.PORT ?? process.env.DEPLOY_SERVER_PORT ?? 3001;
 
-// Import contract
-const { Contract } = await import('./contracts/managed/bonding_curve/contract/index.js');
+// Lazy contract import — WASM init can be slow, don't block server startup
+let _Contract = null;
+async function getContract() {
+  if (!_Contract) {
+    console.log('[init] Loading bonding curve contract...');
+    const mod = await import('./contracts/managed/bonding_curve/contract/index.js');
+    _Contract = mod.Contract;
+    console.log('[init] Contract loaded');
+  }
+  return _Contract;
+}
+// Contract warmed after server starts (see bottom of file)
 
 /** Map SDK errors to actionable copy for swaps. */
 function formatTradeBuildError(err) {
@@ -192,7 +202,20 @@ function deriveShieldedKeysFromSeed(seed) {
     getEncryptionPublicKey: () => toHex(shieldedSK.encryptionPublicKey),
   };
 }
-const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
+let _tradeWalletProvider = null;
+function getTradeWalletProvider() {
+  if (!_tradeWalletProvider) {
+    console.log('[init] Deriving shielded keys...');
+    _tradeWalletProvider = deriveShieldedKeysFromSeed(SEED);
+    console.log('[init] Shielded keys ready');
+  }
+  return _tradeWalletProvider;
+}
+// Compat alias used by trade endpoints
+const TRADE_WALLET_PROVIDER = {
+  getCoinPublicKey: () => getTradeWalletProvider().getCoinPublicKey(),
+  getEncryptionPublicKey: () => getTradeWalletProvider().getEncryptionPublicKey(),
+};
 
 // Wallet — built on-demand per deploy/signed request, not kept warm.
 // The Midnight SDK opens persistent WS connections that crash the process on disconnect,
@@ -322,7 +345,8 @@ async function deployBondingCurve() {
   };
 
   const witnesses = { treasurySecretKey: () => treasurySk };
-  const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
+  const Contract = await getContract();
+    const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
     CompiledContract.withWitnesses(witnesses),
     CompiledContract.withCompiledFileAssets(ZK_PATH),
   );
@@ -355,19 +379,15 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+app.get('/ping', (_, res) => { res.send('pong'); });
+
 app.get('/health', (_, res) => {
-  const cpk = TRADE_WALLET_PROVIDER.getCoinPublicKey();
   res.json({
     status: 'ok',
     networkId: NETWORK_ID,
     proofServer: PROOF,
-    v: 14,
-    debug_cpk_type: typeof cpk,
-    debug_cpk_ctor: cpk?.constructor?.name ?? 'null',
-    debug_cpk_len: cpk?.length ?? 'n/a',
-    debug_cpk_preview: String(cpk).slice(0, 80),
-    debug_has_toHexString: typeof cpk?.toHexString,
-    debug_has_buffer: String(typeof cpk?.buffer),
+    v: 15,
+    uptime: Math.floor(process.uptime()),
   });
 });
 
@@ -416,6 +436,7 @@ app.post('/deploy', async (req, res) => {
     const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
     const witnesses  = { treasurySecretKey: () => treasurySk };
+    const Contract = await getContract();
     const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
@@ -466,6 +487,7 @@ app.post('/deploy/unproven', async (req, res) => {
     const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
     const witnesses  = { treasurySecretKey: () => treasurySk };
+    const Contract = await getContract();
     const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
@@ -552,6 +574,7 @@ app.post('/deploy/signed', async (req, res) => {
     };
 
     const witnesses = { treasurySecretKey: () => treasurySk };
+    const Contract = await getContract();
     const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
@@ -620,6 +643,7 @@ app.post('/trade/build', async (req, res) => {
 
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
     const witnesses = { treasurySecretKey: () => treasurySk };
+    const Contract = await getContract();
     const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
@@ -699,6 +723,7 @@ app.post('/trade/unproven', async (req, res) => {
 
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
     const witnesses = { treasurySecretKey: () => treasurySk };
+    const Contract = await getContract();
     const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
       CompiledContract.withWitnesses(witnesses),
       CompiledContract.withCompiledFileAssets(ZK_PATH),
@@ -723,8 +748,15 @@ app.post('/trade/unproven', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Night.fun deploy server running on port ${PORT}`);
   console.log(`Network: ${NETWORK_ID} · indexer ${INDEXER}`);
   console.log(`Proof server: ${PROOF} (co-locate deploy + proof in the same region to cut latency)`);
 });
+
+// Keep the process alive — Midnight SDK WS disconnects can empty the event loop.
+const _keepAlive = setInterval(() => {}, 15_000);
+if (_keepAlive.ref) _keepAlive.ref();
+
+// Warm contract WASM in background after server is listening
+getContract().catch(e => console.error('[init] Contract load failed:', e.message));
