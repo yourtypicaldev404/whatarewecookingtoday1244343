@@ -208,7 +208,7 @@ a { color: inherit; text-decoration: none; }
   min-height: var(--s-48);
 }
 .sidebar-brand-icon {
-  width: 52px; height: 52px; min-width: 52px;
+  width: 96px; height: 96px; min-width: 96px;
   border-radius: var(--radius-sm);
   object-fit: contain;
 }
@@ -269,7 +269,7 @@ a { color: inherit; text-decoration: none; }
   padding: var(--s-12) var(--s-4);
 }
 .sidebar.collapsed .sidebar-brand-icon {
-  width: 44px; height: 44px; min-width: 44px;
+  width: 96px; height: 96px; min-width: 96px;
 }
 
 .sidebar-nav {
