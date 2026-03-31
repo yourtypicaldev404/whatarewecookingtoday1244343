@@ -15,10 +15,10 @@ const TICKER_ITEMS = [
 ];
 
 const FILTERS = [
-  { id: 'all', label: 'All' },
-  { id: 'new', label: 'New' },
-  { id: 'trending', label: 'Trending' },
-  { id: 'bonded', label: 'Graduated' },
+  { id: 'all', label: 'All', icon: '\u{1F30D}' },
+  { id: 'new', label: 'New', icon: '\u{1F423}' },
+  { id: 'trending', label: 'Trending', icon: '\u{1F525}' },
+  { id: 'bonded', label: 'Graduated', icon: '\u{1F393}' },
 ];
 
 function timeAgo(ts: number) {
@@ -184,7 +184,7 @@ function HomePageInner() {
               onClick={() => setFilter(f.id)}
               className={`filter-btn${filter === f.id ? ' active' : ''}`}
             >
-              {f.label}
+              {f.icon} {f.label}
             </button>
           ))}
         </div>
