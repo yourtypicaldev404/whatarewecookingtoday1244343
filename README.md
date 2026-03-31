@@ -1,4 +1,4 @@
-# 🌙 night.fun
+# night.fun
 
 **pump.fun for Midnight Network.**
 Users launch memecoins backed by real Zero Knowledge smart contracts. Each token has a bonding curve — price rises as people buy. When the curve fills (69,000 NIGHT), the token graduates to NorthStar DEX.
@@ -20,12 +20,12 @@ Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transa
 | Proof Server | midnightntwrk/proof-server:8.0.3 |
 | DB | Upstash Redis (KV) |
 | Images | Pinata IPFS |
-| Deploy Server | Railway (Node.js + Express) |
+| Deploy Server | Railway (Node.js + Express 5) |
 | Hosting | Vercel |
 
 ---
 
-## Status
+## Status (updated 2026-03-31)
 
 ### Done ✅
 
@@ -33,17 +33,22 @@ Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transa
 |---------|-------|
 | Homepage | Token grid, King of the Hill, search, sort (bump / new / mcap / graduated) |
 | Token page | Bonding curve progress bar, buy/sell UI, price chart (mock data) |
+| Token images | IPFS via Pinata — loads on homepage, token page, and leaderboard; falls back to initials |
 | 4-step launch wizard | Name → ticker → description → image → deploy |
 | ZK contract compilation | Compact → WASM/zkir, circuits: `buy`, `sell`, `getProgress`, `pause`, `unpause` |
 | Token registry | Upstash Redis — persists address, reserves, volume, holder counts |
 | IPFS image upload | Upload via Pinata on launch, stored as `imageUri` in Redis |
-| Social links | Twitter, Telegram, website, Discord on token page |
+| Social links | Twitter/X, Discord on token page |
 | Wallet connect | Lace DApp Connector, connect/disconnect in Navbar |
 | Lace install redirect | Browser-aware link to Chrome Web Store / Firefox / Edge |
-| Deploy server | Railway, Express, v13 — always on |
+| Deploy server | Railway, Express 5, fully functional — deploy, trade, health endpoints |
 | Portfolio page | `/portfolio` — positions, P&L, created tokens, tx history **(mock data)** |
+| Leaderboard | `/leaderboard` — top tokens by volume, trades, liquidity |
+| Stats dashboard | `/stats` — platform-wide metrics, 30-day launch history |
+| How it works | `/how-it-works` — 4-step educational flow + feature highlights |
 | ZK work overlay | Phase-aware progress UI during deploy and trades |
 | Client-side Lace proving | Deploy + trades prove via Lace's `getProvingProvider`, then `balanceUnsealedTransaction` + `submitTransaction` — user signs everything |
+| Sidebar UI | Collapsible sidebar with nav, network status indicator, social links, BETA badge |
 
 ### Partially Working / Blocked ⚠️
 
@@ -58,7 +63,7 @@ The flow uses **client-side proving via Lace's `getProvingProvider`**:
 This approach fixes the previous `balanceUnsealedTransaction` hang by ensuring the proof is generated through Lace's own proving infrastructure, avoiding the serialization format mismatch between the server's proof provider (ledger-v8) and Lace's internal deserializer.
 
 **Common errors:**
-- `No public state found at contract address` — indexer hasn't indexed the contract yet, or Preview was reset after deploy (redeploy the token)
+- `No public state found at contract address` — indexer hasn't indexed the contract yet, or chain was reset after deploy (redeploy the token)
 - 502/503/504 — Railway deploy server cold start or proof server unavailable
 - Proving timeout — Lace's proof server may be slow or unreachable; check `proverServerUri` in Lace config
 
@@ -68,10 +73,9 @@ This approach fixes the previous `balanceUnsealedTransaction` hang by ensuring t
 |---------|--------------|
 | Real portfolio | Query Midnight indexer for the connected wallet's ZK token balances — no public API for this yet |
 | Real price chart | Subscribe to indexer WebSocket for per-contract trade events, store OHLCV in Redis |
-| Token images on homepage cards | Load `imageUri` from Redis and display instead of the moon emoji placeholder |
 | Graduation flow | When `adaReserve >= 69,000 NIGHT`, call contract's `graduate()` circuit and list on NorthStar DEX |
 | Real holder tracking | Parse ZK outputs from indexer to count unique holders per token |
-| End-to-end testing | Verify client-side Lace proving flow works with Preview network and Lace wallet |
+| End-to-end testing | Verify client-side Lace proving flow works on mainnet with Lace wallet |
 | Comment / bump system | Social layer — users bump tokens to the top by posting |
 | Token gating | Launch with a whitelist, vesting schedule, or creator fee |
 
@@ -208,8 +212,9 @@ PORT=3001
 
 | Issue | Cause | Workaround |
 |-------|-------|------------|
-| Deploy times out / fails | Midnight Preview chain down or Lace proof server unreachable | Wait for chain to come back up; check Lace prover config |
+| Deploy times out / fails | Midnight chain down or Lace proof server unreachable | Wait for chain to come back up; check Lace prover config |
 | Buy/sell hangs after Lace popup | `balanceUnsealedTransaction` format mismatch (mitigated by client-side Lace proving) | Ensure Lace is updated and `getProvingProvider` is used |
-| `No public state found` on trade | Token deployed on a different chain epoch / Preview was reset | Redeploy the token |
+| `No public state found` on trade | Token deployed on a different chain epoch / chain was reset | Redeploy the token |
 | Portfolio shows mock data | No indexer API for user ZK balances yet | Real data needs Midnight indexer extension |
-| Token images show moon emoji | `imageUri` stored but not rendered in cards | Load IPFS URL in `TokenCard` component |
+| Price chart is synthetic | No real trade event feed from indexer | Needs indexer WebSocket integration |
+| Discord link placeholder | `https://discord.gg/` not filled in | Update with real invite link |
