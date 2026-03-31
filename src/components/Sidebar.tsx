@@ -53,8 +53,8 @@ const NAV_ITEMS = [
     href: '/how-it-works',
     label: 'How it works',
     icon: (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" />
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><path d="M9.5 9.5a3 3 0 1 1 3.5 2.95V14" /><circle cx="12" cy="17.5" r="0.5" fill="currentColor" stroke="none" />
       </svg>
     ),
   },
