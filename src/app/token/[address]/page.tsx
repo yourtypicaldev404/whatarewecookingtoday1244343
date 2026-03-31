@@ -249,7 +249,7 @@ export default function TokenPage() {
   const mockTrades = Array.from({ length: 10 }, (_, i) => ({
     type: i % 3 === 0 ? 'sell' : 'buy',
     wallet: addr.slice(0,4) + '...' + i.toString(16).padStart(4,'0'),
-    dust: (Math.random() * 800 + 20).toFixed(1),
+    night: (Math.random() * 800 + 20).toFixed(1),
     tokens: Math.floor(Math.random() * 500000 + 5000),
     age: `${i + 1}m`,
   }));
@@ -308,7 +308,7 @@ export default function TokenPage() {
             <div style={{ display:'flex',alignItems:'center',marginLeft:'auto',flexWrap:'wrap' }}>
               {([
                 ['MCAP',    fmtMcap(ada),                              ada>0n?'var(--primary-color)':'var(--text-secondary)'],
-                ['PRICE',   fmtDust(spotPrice(ada,tok),6)+' D',        'var(--text-primary)'],
+                ['PRICE',   fmtDust(spotPrice(ada,tok),6)+' N',        'var(--text-primary)'],
                 ['VOL',     fmtDust(BigInt(token.totalVolume??'0'),0),  'var(--text-secondary)'],
                 ['TXNS',    String(token.txCount??0),                   'var(--text-secondary)'],
                 ['HOLDERS', String(token.holderCount??1),               'var(--text-secondary)'],
@@ -351,7 +351,7 @@ export default function TokenPage() {
               <div style={{ height:'100%',width:`${prog}%`,background:prog>80?'var(--primary-color)':prog>50?'var(--warning)':'var(--text-tertiary)',borderRadius:3,transition:'width .5s ease' }} />
             </div>
             <span style={{ fontFamily:'var(--mono)',fontSize:14,color:prog>80?'var(--primary-color)':'var(--text-secondary)',whiteSpace:'nowrap' }}>
-              {fmtDust(ada)} / {fmtDust(GRADUATION_TARGET)} DUST ({prog}%)
+              {fmtDust(ada)} / {fmtDust(GRADUATION_TARGET)} NIGHT ({prog}%)
             </span>
             {prog >= 100 && <span className="badge badge-green">GRADUATED</span>}
           </div>
@@ -374,13 +374,13 @@ export default function TokenPage() {
             {activeTab === 'trades' && (
               <>
                 <table className="data-table">
-                  <thead><tr><th>Type</th><th>Wallet</th><th>DUST</th><th>Tokens</th><th>Age</th></tr></thead>
+                  <thead><tr><th>Type</th><th>Wallet</th><th>NIGHT</th><th>Tokens</th><th>Age</th></tr></thead>
                   <tbody>
                     {mockTrades.map((tx,i) => (
                       <tr key={i}>
                         <td><span style={{ color:tx.type==='buy'?'var(--primary-color)':'var(--danger)',fontWeight:600 }}>{tx.type.toUpperCase()}</span></td>
                         <td style={{ fontFamily:'var(--mono)',fontSize:11 }}>{tx.wallet}</td>
-                        <td>{tx.dust}</td>
+                        <td>{tx.night}</td>
                         <td>{tx.tokens.toLocaleString()}</td>
                         <td style={{ color:'var(--text-tertiary)' }}>{tx.age}</td>
                       </tr>
@@ -403,7 +403,7 @@ export default function TokenPage() {
                   ['Contract',  addr.slice(0,14)+'...'],
                   ['Network',   'Midnight '+(process.env.NEXT_PUBLIC_NETWORK_ID??'preprod')],
                   ['Supply',    '1,000,000,000'],
-                  ['Target',    '69,000 DUST'],
+                  ['Target',    '69,000 NIGHT'],
                   ['Deployed',  token.deployedAt ? new Date(token.deployedAt*1000).toLocaleDateString() : '—'],
                   ['Creator',   token.creatorAddr ? token.creatorAddr.slice(0,12)+'...' : '—'],
                 ].map(([l,v]) => (
@@ -439,7 +439,7 @@ export default function TokenPage() {
                   onChange={e => { setAmount(e.target.value); setPreset(''); }}
                   placeholder="0"
                 />
-                <div className="amount-unit">{tradeMode==='buy'?'DUST':token.ticker}</div>
+                <div className="amount-unit">{tradeMode==='buy'?'NIGHT':token.ticker}</div>
               </div>
             </div>
 
@@ -502,7 +502,7 @@ export default function TokenPage() {
           <div style={{ padding:'16px 18px' }}>
             <div className="section-title" style={{ marginBottom:13 }}>Your Position</div>
             <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:8 }}>
-              {[['Bought','0 DUST'],['Sold','0 DUST'],['Holding','0 '+token.ticker],['PnL','+0%']].map(([l,v]) => (
+              {[['Bought','0 NIGHT'],['Sold','0 NIGHT'],['Holding','0 '+token.ticker],['PnL','+0%']].map(([l,v]) => (
                 <div key={l} style={{ background:'var(--bg-main)',borderRadius:'var(--radius-sm)',padding:'10px 13px',border:'1px solid var(--border-color)' }}>
                   <div className="stat-label" style={{ marginBottom:4 }}>{l}</div>
                   <div style={{ fontFamily:'var(--mono)',fontSize:16,color:'var(--text-secondary)' }}>{v}</div>
@@ -520,7 +520,7 @@ export default function TokenPage() {
               ['Dev holdings','0%','var(--primary-color)'],
               ['Holders',String(token.holderCount??1),'var(--text-secondary)'],
               ['Total txns',String(token.txCount??0),'var(--text-secondary)'],
-              ['Curve target','69,000 DUST','var(--text-secondary)'],
+              ['Curve target','69,000 NIGHT','var(--text-secondary)'],
             ].map(([l,v,c]) => (
               <div key={l} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--border-color)' }}>
                 <span style={{ fontFamily:'var(--mono)',fontSize:13,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.06em' }}>{l}</span>

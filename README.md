@@ -1,7 +1,7 @@
 # 🌙 night.fun
 
 **pump.fun for Midnight Network.**
-Users launch memecoins backed by real Zero Knowledge smart contracts. Each token has a bonding curve — price rises as people buy. When the curve fills (69,000 DUST), the token graduates to NorthStar DEX.
+Users launch memecoins backed by real Zero Knowledge smart contracts. Each token has a bonding curve — price rises as people buy. When the curve fills (69,000 NIGHT), the token graduates to NorthStar DEX.
 
 Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transaction history.
 
@@ -52,7 +52,7 @@ The flow uses **client-side proving via Lace's `getProvingProvider`**:
 1. Server builds an UNPROVEN tx (fast — circuit construction only, no ZK proving)
 2. Browser deserializes the unproven tx using `ledger-v8`
 3. Browser proves it via Lace's `getProvingProvider` (~30–60s) — ensures proof format matches Lace's internal balancer
-4. Browser calls `balanceUnsealedTransaction` → Lace popup → user approves → wallet adds DUST fee inputs
+4. Browser calls `balanceUnsealedTransaction` → Lace popup → user approves → wallet adds NIGHT fee inputs
 5. Browser calls `submitTransaction` → broadcast to chain
 
 This approach fixes the previous `balanceUnsealedTransaction` hang by ensuring the proof is generated through Lace's own proving infrastructure, avoiding the serialization format mismatch between the server's proof provider (ledger-v8) and Lace's internal deserializer.
@@ -69,7 +69,7 @@ This approach fixes the previous `balanceUnsealedTransaction` hang by ensuring t
 | Real portfolio | Query Midnight indexer for the connected wallet's ZK token balances — no public API for this yet |
 | Real price chart | Subscribe to indexer WebSocket for per-contract trade events, store OHLCV in Redis |
 | Token images on homepage cards | Load `imageUri` from Redis and display instead of the moon emoji placeholder |
-| Graduation flow | When `adaReserve >= 69,000 DUST`, call contract's `graduate()` circuit and list on NorthStar DEX |
+| Graduation flow | When `adaReserve >= 69,000 NIGHT`, call contract's `graduate()` circuit and list on NorthStar DEX |
 | Real holder tracking | Parse ZK outputs from indexer to count unique holders per token |
 | End-to-end testing | Verify client-side Lace proving flow works with Preview network and Lace wallet |
 | Comment / bump system | Social layer — users bump tokens to the top by posting |
@@ -160,7 +160,7 @@ PINATA_JWT=                             # IPFS image uploads
 
 ```bash
 NETWORK_ID=mainnet
-DEPLOYER_SEED=<64-char hex>             # server wallet seed (needs DUST)
+DEPLOYER_SEED=<64-char hex>             # server wallet seed (needs NIGHT)
 TREASURY_SEED=<64-char hex>             # treasury witness key
 PROOF_SERVER_URL=http://127.0.0.1:6300                              # self-hosted (no public mainnet prover yet)
 INDEXER_HTTP=https://indexer.mainnet.midnight.network/api/v4/graphql
@@ -176,7 +176,7 @@ PORT=3001
 **Bonding Curve Contract** (`contracts/managed/bonding_curve/`)
 - Language: Compact 0.30.0 (pragma 0.22)
 - Circuits: `buy`, `sell`, `getProgress`, `pause`, `unpause`
-- Graduation target: 69,000 DUST
+- Graduation target: 69,000 NIGHT
 - Total supply: 1,000,000,000 tokens (6 decimals)
 - Fee: 1% per trade
 - Witnesses: `treasurySecretKey`

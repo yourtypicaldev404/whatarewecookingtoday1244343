@@ -84,7 +84,7 @@ export default function LaunchPage() {
           <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 16 }}>Token factory</div>
           <h1 style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.5px', marginBottom: 8, fontFamily: 'var(--font)', color: 'var(--text-primary)' }}>Launch a new token</h1>
           <p style={{ color: 'var(--text-tertiary)', fontSize: 17 }}>
-            Deploy to {PUBLIC_NETWORK_LABEL} · 1B supply · 69k DUST graduation
+            Deploy to {PUBLIC_NETWORK_LABEL} · 1B supply · 69k NIGHT graduation
           </p>
         </div>
 
@@ -180,12 +180,12 @@ export default function LaunchPage() {
                     color: form.initialBuy === v ? 'var(--text-primary)' : 'var(--text-tertiary)',
                     fontFamily: 'var(--mono)', fontSize: 16, transition: 'var(--transition-fast)',
                   }}>
-                    {v === '0' ? 'None' : `${v} DUST`}
+                    {v === '0' ? 'None' : `${v} NIGHT`}
                   </button>
                 ))}
               </div>
               <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '18px 21px' }}>
-                {[['Protocol fee','FREE','var(--primary-color)'],['Network fee','~6 DUST','var(--text-secondary)'],['Initial buy',`${form.initialBuy || '0'} DUST`,'var(--text-secondary)']].map(([l,v,c])=>(
+                {[['Protocol fee','FREE','var(--primary-color)'],['Network fee','~6 NIGHT','var(--text-secondary)'],['Initial buy',`${form.initialBuy || '0'} NIGHT`,'var(--text-secondary)']].map(([l,v,c])=>(
                   <div key={l} style={{ display:'flex', justifyContent:'space-between', marginBottom: 10 }}>
                     <span style={{ fontSize: 16, color:'var(--text-tertiary)' }}>{l}</span>
                     <span style={{ fontFamily:'var(--mono)', fontSize: 16, color:c }}>{v}</span>
@@ -194,7 +194,7 @@ export default function LaunchPage() {
                 <div className="divider" style={{ margin:'13px 0' }} />
                 <div style={{ display:'flex', justifyContent:'space-between' }}>
                   <span style={{ fontWeight: 600, fontSize: 17 }}>Total</span>
-                  <span style={{ fontFamily:'var(--mono)', fontSize: 17, fontWeight: 700 }}>{(6+Number(form.initialBuy||0)).toLocaleString()} DUST</span>
+                  <span style={{ fontFamily:'var(--mono)', fontSize: 17, fontWeight: 700 }}>{(6+Number(form.initialBuy||0)).toLocaleString()} NIGHT</span>
                 </div>
               </div>
             </div>
@@ -214,7 +214,7 @@ export default function LaunchPage() {
                 </div>
               </div>
               <div style={{ background:'var(--bg-main)', border:'1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding:'17px 21px', marginBottom: 26 }}>
-                {[['Total supply','1,000,000,000'],['Graduation','69,000 DUST'],['Trade fee','1%'],['Network',`Midnight ${PUBLIC_NETWORK_LABEL}`]].map(([k,v])=>(
+                {[['Total supply','1,000,000,000'],['Graduation','69,000 NIGHT'],['Trade fee','1%'],['Network',`Midnight ${PUBLIC_NETWORK_LABEL}`]].map(([k,v])=>(
                   <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom: 9 }}>
                     <span style={{ fontSize: 16, color:'var(--text-tertiary)' }}>{k}</span>
                     <span style={{ fontFamily:'var(--mono)', fontSize: 16, color:'var(--text-secondary)' }}>{v}</span>

@@ -9,7 +9,7 @@ type Token = any;
 const TICKER_ITEMS = [
   { t: 'NITE', p: '+42.1', up: true }, { t: 'MOON', p: '+128.0', up: true },
   { t: 'PRIV', p: '+19.4', up: true }, { t: 'VOID', p: '+87.3', up: true },
-  { t: 'DARK', p: '+5.7',  up: true }, { t: 'DUST', p: '-8.3',  up: false },
+  { t: 'DARK', p: '+5.7',  up: true }, { t: 'NGHT', p: '-8.3',  up: false },
   { t: 'ZK',   p: '-2.1',  up: false }, { t: 'SHLD', p: '-12.5', up: false },
   { t: 'BYTE', p: '+33.0', up: true }, { t: 'MASK', p: '+7.8',  up: true },
 ];

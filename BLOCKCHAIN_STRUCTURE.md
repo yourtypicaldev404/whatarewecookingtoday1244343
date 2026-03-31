@@ -9,10 +9,10 @@ night.fun is a bonding curve token launchpad built on [Midnight Network](https:/
 ```
 User launches token → Bonding curve contract deployed
 Users buy/sell on curve → ZK-proven transactions settled on-chain
-Reserve hits 69,000 DUST → Token "graduates" (eligible for DEX listing)
+Reserve hits 69,000 NIGHT → Token "graduates" (eligible for DEX listing)
 ```
 
-**Native token:** DUST (Midnight's base currency, analogous to SOL on Solana)
+**Native token:** NIGHT (Midnight's native token for trading and fees)
 
 ---
 
@@ -45,7 +45,7 @@ Reserve hits 69,000 DUST → Token "graduates" (eligible for DEX listing)
 2. **Wallet selection** -- If multiple wallets are detected, the user picks one from a modal before proceeding.
 3. **Connect** -- Call `wallet.connect(networkId)` where `networkId` matches the deployment environment (`mainnet`, `preview`, or `preprod`).
 4. **Permissions** -- Call `hintUsage()` to declare what the DApp needs (balance reads, transaction signing).
-5. **State hydration** -- Fetch the user's DUST balance and shielded/unshielded addresses.
+5. **State hydration** -- Fetch the user's NIGHT balance and shielded/unshielded addresses.
 6. **Auto-reconnect** -- The selected wallet ID is persisted to `localStorage`. On subsequent page loads the frontend silently reconnects without re-prompting.
 
 **API version:** Midnight DApp Connector API v4.0.0
@@ -246,10 +246,10 @@ Written in **Compact**, Midnight's domain-specific language that compiles to ZK 
 
 | Circuit | Purpose |
 |---------|---------|
-| `buy` | User sends DUST, receives tokens minted along the curve |
-| `sell` | User sends tokens, receives DUST from the reserve |
+| `buy` | User sends NIGHT, receives tokens minted along the curve |
+| `sell` | User sends tokens, receives NIGHT from the reserve |
 
-**Graduation:** When the bonding curve reserve reaches **69,000 DUST**, the token "graduates" and becomes eligible for DEX listing (analogous to pump.fun's Raydium migration at ~$69k market cap).
+**Graduation:** When the bonding curve reserve reaches **69,000 NIGHT**, the token "graduates" and becomes eligible for DEX listing (analogous to pump.fun's Raydium migration at ~$69k market cap).
 
 **Transaction lifecycle for a circuit call:**
 
@@ -310,7 +310,7 @@ preprod:  wss://rpc.preprod.midnight.network
 
 **Problem:** Users with empty wallets cannot pay transaction fees.
 
-**Workaround:** 1AM wallet integrates ProofStation, which sponsors gas fees. This means users interacting via 1AM can trade without holding DUST for fees -- making the UX "dust-free."
+**Workaround:** 1AM wallet integrates ProofStation, which sponsors gas fees. This means users interacting via 1AM can trade without holding NIGHT for fees -- making the UX "dust-free."
 
 ### RPC WebSocket disconnects
 
@@ -347,7 +347,7 @@ Railway's `railway.json` or `Dockerfile` should include this flag.
 | **Chain** | Solana (public, transparent) | Midnight (ZK privacy) |
 | **Token standard** | SPL tokens | Compact contracts (ZK circuits) |
 | **Bonding curve** | On-chain program | On-chain Compact contract |
-| **Graduation target** | ~$69k market cap → Raydium | 69,000 DUST reserve |
+| **Graduation target** | ~$69k market cap → Raydium | 69,000 NIGHT reserve |
 | **Transaction signing** | Phantom/Solflare sign directly | ZK proving → wallet balance → submit |
 | **Gas/fees** | User pays SOL | Server warm wallet or ProofStation sponsors |
 | **Proving** | N/A (no ZK) | Server-side proof generation (~seconds) |

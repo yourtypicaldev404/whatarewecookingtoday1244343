@@ -8,12 +8,12 @@
 
 export const TOTAL_SUPPLY      = 1_000_000_000_000_000n;   // 1B tokens, 6 dec
 export const BURN_AMOUNT       = 1_000_000_000n;            // 1M tokens
-export const GRADUATION_TARGET = 69_000_000_000n;           // 69k DUST
+export const GRADUATION_TARGET = 69_000_000_000n;           // 69k NIGHT
 export const VIRTUAL_ADA       = 2_550_000_000n;            // price floor
 export const FEE_BPS           = 100n;
 export const BPS_DENOM         = 10_000n;
 export const PRICE_SCALE       = 1_000_000n;
-export const SOCIAL_FEE        = 150_000_000n;              // 150 DUST
+export const SOCIAL_FEE        = 150_000_000n;              // 150 NIGHT
 
 export const CIRCULATING_SUPPLY = TOTAL_SUPPLY - BURN_AMOUNT;
 
@@ -133,7 +133,7 @@ export function kothScore(params: {
 
 // ── Formatting ────────────────────────────────────────────────────────────────
 
-/** tDUST → "1,234.56 DUST" */
+/** tNIGHT → "1,234.56" */
 export function fmtDust(tDust: bigint, dec = 2): string {
   const whole = tDust / 1_000_000n;
   if (dec === 0) return whole.toLocaleString();
@@ -151,7 +151,7 @@ export function fmtTokens(amount: bigint, dec = 0): string {
 
 /** Market cap with suffix */
 export function fmtMcap(tDust: bigint): string {
-  const dust = Number(tDust / 1_000n);            // milli-DUST
+  const dust = Number(tDust / 1_000n);            // milli-NIGHT
   if (dust >= 1_000_000_000) return `₾${(dust / 1_000_000_000).toFixed(2)}B`;
   if (dust >= 1_000_000)     return `₾${(dust / 1_000_000).toFixed(2)}M`;
   if (dust >= 1_000)         return `₾${(dust / 1_000).toFixed(1)}k`;
