@@ -106,7 +106,7 @@ export default function PortfolioPage() {
   if (!connected) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, textAlign: 'center', padding: '0 24px' }}>
-        <div style={{ width: 83, height: 83, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, marginBottom: 26 }}>🌙</div>
+        <img src="/logo.png" alt="night.fun" style={{ width: 83, height: 83, borderRadius: 'var(--radius-md)', marginBottom: 26 }} />
         <h2 style={{ fontWeight: 700, fontSize: 31, letterSpacing: '-0.02em', marginBottom: 13, color: 'var(--text-primary)' }}>Connect to see your portfolio</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: 18, maxWidth: 494, marginBottom: 36, lineHeight: 1.6 }}>
           Connect your wallet to view your positions, P&L, and transaction history.

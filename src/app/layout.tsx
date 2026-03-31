@@ -8,6 +8,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'night.fun — Midnight Memecoin Launchpad',
   description: 'Launch and trade memecoins on Midnight Network.',
+  icons: { icon: '/logo.png', apple: '/logo.png' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

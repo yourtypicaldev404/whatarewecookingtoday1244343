@@ -24,7 +24,7 @@ export default function TokenCard({ token }: { token: TokenRecord }) {
             background: `linear-gradient(135deg,#${token.address.slice(2,8)},#${token.address.slice(8,14)})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 29, border: '1px solid var(--border-color)',
-          }}>🌙</div>
+          }}><img src="/logo.png" alt="" style={{ width: '60%', height: '60%', objectFit: 'contain' }} /></div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>

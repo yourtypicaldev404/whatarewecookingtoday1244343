@@ -67,7 +67,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       {/* Brand */}
       <div className="sidebar-brand" onClick={onToggle}>
-        <div className="sidebar-brand-icon">N</div>
+        <img src="/logo.png" alt="night.fun" className="sidebar-brand-icon" />
         <span className="sidebar-brand-text">
           night<em>.fun</em>
         </span>
