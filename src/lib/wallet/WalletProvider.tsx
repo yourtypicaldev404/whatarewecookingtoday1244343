@@ -107,6 +107,16 @@ export interface WalletState {
 
 export type DetectedWallet = { id: string; name: string; icon: string };
 
+/** Hardcoded fallback logos for known wallets (when extension doesn't provide icon) */
+const WALLET_FALLBACK_ICONS: Record<string, string> = {
+  '1am': 'https://1am.xyz/favicon.ico',
+  'mnLace': 'https://cdn.sanity.io/images/tnb8oobx/production/6e11c5049ea3ae633c8a30f2aaa36e52fc89cf16-64x64.png',
+};
+const WALLET_FALLBACK_NAMES: Record<string, string> = {
+  '1am': '1AM',
+  'mnLace': 'Lace',
+};
+
 interface WalletActions {
   connect(walletId?: string): Promise<void>;
   disconnect():               void;
@@ -196,8 +206,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setState({
         connected:      true,
         walletId,
-        walletName:     walletInitial.name || walletId,
-        walletIcon:     walletInitial.icon || null,
+        walletName:     walletInitial.name || WALLET_FALLBACK_NAMES[walletId] || walletId,
+        walletIcon:     walletInitial.icon || WALLET_FALLBACK_ICONS[walletId] || null,
         unshieldedAddr: parseUnshieldedAddress(unshieldedAddr),
         dustAddr:       parseDustAddress(dustAddr),
         dustBalance,
@@ -248,8 +258,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         const api = w as InitialAPI;
         return {
           id,
-          name: api.name || id,
-          icon: api.icon || '',
+          name: api.name || WALLET_FALLBACK_NAMES[id] || id,
+          icon: api.icon || WALLET_FALLBACK_ICONS[id] || '',
         };
       });
   }, []);
