@@ -38,6 +38,14 @@ export async function POST(req: NextRequest) {
     const result = await deployRes.json();
     return NextResponse.json(result);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const msg = err.message || 'Deploy failed';
+    const isTimeout = msg.includes('timeout') || msg.includes('abort');
+    const isNetwork = msg.includes('ECONNREFUSED') || msg.includes('fetch failed') || msg.includes('502');
+    const userMsg = isNetwork
+      ? 'Deploy server is unreachable. It may be restarting — try again in 30 seconds.'
+      : isTimeout
+      ? 'Deploy timed out. The ZK proving step takes 30-90s — try again.'
+      : msg;
+    return NextResponse.json({ error: userMsg }, { status: 500 });
   }
 }

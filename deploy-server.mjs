@@ -199,18 +199,26 @@ const TRADE_WALLET_PROVIDER = deriveShieldedKeysFromSeed(SEED);
 // so we build fresh per request and stop the wallet after use.
 let _walletPromise = null;
 
-function ensureWalletReady() {
+async function ensureWalletReady(retries = 2) {
   if (_walletPromise) return _walletPromise;
   console.log('[wallet] Building wallet on-demand...');
-  _walletPromise = buildWallet(SEED).then(result => {
-    console.log('[wallet] ready');
-    return result;
-  }).catch(err => {
-    _walletPromise = null;
-    console.error('[wallet] init failed:', err.message);
-    throw err;
-  });
-  return _walletPromise;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      _walletPromise = buildWallet(SEED);
+      const result = await _walletPromise;
+      console.log('[wallet] ready (attempt', attempt + 1, ')');
+      return result;
+    } catch (err) {
+      _walletPromise = null;
+      console.error(`[wallet] init failed (attempt ${attempt + 1}/${retries + 1}):`, err.message);
+      if (attempt < retries) {
+        console.log('[wallet] retrying in 3s...');
+        await new Promise(r => setTimeout(r, 3000));
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 function resetWallet() {
@@ -233,6 +241,13 @@ function deriveKeys(seed) {
   return r.keys;
 }
 
+function withTimeout(promise, ms, label = 'operation') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
+  ]);
+}
+
 async function buildWallet(seed) {
   const keys       = deriveKeys(seed);
   const shieldedSK = ledger.ZswapSecretKeys.fromSeed(keys[Roles.Zswap]);
@@ -249,16 +264,25 @@ async function buildWallet(seed) {
     costParameters: { additionalFeeOverhead: 300_000_000_000_000n, feeBlocksMargin: 5 },
   };
 
-  const wallet = await WalletFacade.init({
-    configuration: config,
-    shielded:   (cfg) => ShieldedWallet(cfg).startWithSecretKeys(shieldedSK),
-    unshielded: (cfg) => UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(keystore)),
-    dust:       (cfg) => DustWallet(cfg).startWithSecretKey(dustSK, dustParams),
-  });
+  console.log('[wallet] WalletFacade.init...');
+  const wallet = await withTimeout(
+    WalletFacade.init({
+      configuration: config,
+      shielded:   (cfg) => ShieldedWallet(cfg).startWithSecretKeys(shieldedSK),
+      unshielded: (cfg) => UnshieldedWallet(cfg).startWithPublicKey(PublicKey.fromKeyStore(keystore)),
+      dust:       (cfg) => DustWallet(cfg).startWithSecretKey(dustSK, dustParams),
+    }),
+    60_000,
+    'WalletFacade.init',
+  );
 
-  await wallet.start(shieldedSK, dustSK);
-  await wallet.waitForSyncedState();
+  console.log('[wallet] wallet.start...');
+  await withTimeout(wallet.start(shieldedSK, dustSK), 30_000, 'wallet.start');
 
+  console.log('[wallet] waitForSyncedState...');
+  await withTimeout(wallet.waitForSyncedState(), 90_000, 'waitForSyncedState');
+
+  console.log('[wallet] synced');
   return { wallet, shieldedSK, dustSK, keystore };
 }
 
@@ -496,7 +520,8 @@ app.post('/deploy/signed', async (req, res) => {
     const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
     const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
 
-    const state = await wallet.waitForSyncedState();
+    console.log('[deploy/signed] waitForSyncedState...');
+    const state = await withTimeout(wallet.waitForSyncedState(), 60_000, 'deploy waitForSyncedState');
 
     const walletProvider = {
       getCoinPublicKey:       () => state.shielded.coinPublicKey.toHexString(),
@@ -543,10 +568,14 @@ app.post('/deploy/signed', async (req, res) => {
     const contractAddress = deployed.deployTxData.public.contractAddress;
     const txId            = deployed.deployTxData.public.txId;
     console.log('[deploy/signed] deployed! contractAddress:', contractAddress, '| txId:', txId);
+
+    // Stop wallet to prevent lingering WS connections
+    resetWallet();
+
     res.json({ contractAddress, txId, creatorKey: verifyingKey });
   } catch (err) {
     console.error('[deploy/signed] failed:', err.message, '\n', err.stack);
-    resetWallet(); // Force rebuild on next request
+    resetWallet();
     res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
   }
 });
