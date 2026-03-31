@@ -198,9 +198,6 @@ function HomePageInner() {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-        <Link href="/launch">
-          <button className="btn btn-primary" style={{ height: 42, fontSize: 14, padding: '0 18px', borderRadius: 'var(--radius-pill)', whiteSpace: 'nowrap' }}>New token</button>
-        </Link>
       </div>
 
       {/* Trending carousel */}

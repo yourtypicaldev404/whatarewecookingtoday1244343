@@ -1,8 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { useWallet, shortAddr } from '@/lib/wallet/WalletProvider';
 import type { DetectedWallet } from '@/lib/wallet/WalletProvider';
+
+/** DiceBear fun-emoji avatar from wallet address */
+function memeAvatar(addr: string | null): string {
+  const seed = addr?.slice(0, 16) ?? 'anon';
+  return `https://api.dicebear.com/9.x/fun-emoji/svg?seed=${encodeURIComponent(seed)}&size=40`;
+}
 
 export default function TopWalletBar() {
   const { connected, connecting, connect, disconnect, unshieldedAddr, walletName, walletIcon, getAvailableWallets } = useWallet();
@@ -10,7 +17,6 @@ export default function TopWalletBar() {
   const [wallets, setWallets] = useState<DetectedWallet[]>([]);
   const pickerRef = useRef<HTMLDivElement>(null);
 
-  // Close picker on outside click
   useEffect(() => {
     if (!showPicker) return;
     const handler = (e: MouseEvent) => {
@@ -25,15 +31,8 @@ export default function TopWalletBar() {
   const handleConnectClick = () => {
     const detected = getAvailableWallets();
     setWallets(detected);
-
-    if (detected.length === 0) {
-      void connect();
-      return;
-    }
-    if (detected.length === 1) {
-      void connect(detected[0].id);
-      return;
-    }
+    if (detected.length === 0) { void connect(); return; }
+    if (detected.length === 1) { void connect(detected[0].id); return; }
     setShowPicker(true);
   };
 
@@ -44,24 +43,27 @@ export default function TopWalletBar() {
 
   return (
     <div className="top-wallet-bar">
+      {/* New token button — always visible */}
+      <Link href="/launch">
+        <button className="top-bar-launch-btn">
+          + New Token
+        </button>
+      </Link>
+
       {connected ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <img
+            src={memeAvatar(unshieldedAddr)}
+            alt=""
+            style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}
+          />
           {walletIcon && (
-            <img
-              src={walletIcon}
-              alt=""
-              style={{ width: 22, height: 22, borderRadius: 4 }}
-            />
+            <img src={walletIcon} alt="" style={{ width: 18, height: 18, borderRadius: 3 }} />
           )}
-          <span className="pulse-dot" />
           <span style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-secondary)' }}>
-            {walletName ? `${walletName} · ` : ''}{shortAddr(unshieldedAddr)}
+            {shortAddr(unshieldedAddr)}
           </span>
-          <button
-            type="button"
-            onClick={disconnect}
-            className="top-wallet-btn connected"
-          >
+          <button type="button" onClick={disconnect} className="top-wallet-btn connected">
             Disconnect
           </button>
         </div>
@@ -82,18 +84,9 @@ export default function TopWalletBar() {
                 Select wallet
               </div>
               {wallets.map(w => (
-                <button
-                  key={w.id}
-                  type="button"
-                  className="wallet-picker-item"
-                  onClick={() => handlePickWallet(w.id)}
-                >
+                <button key={w.id} type="button" className="wallet-picker-item" onClick={() => handlePickWallet(w.id)}>
                   {w.icon ? (
-                    <img
-                      src={w.icon}
-                      alt=""
-                      style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', flexShrink: 0 }}
-                    />
+                    <img src={w.icon} alt="" style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', flexShrink: 0 }} />
                   ) : (
                     <span style={{ width: 28, height: 28, borderRadius: 'var(--radius-sm)', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0, color: 'var(--text-secondary)' }}>
                       {w.name.charAt(0)}
