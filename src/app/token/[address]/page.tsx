@@ -383,7 +383,7 @@ export default function TokenPage() {
               <button key={t} className={`tf-btn ${activeTf===t?'active':''}`} onClick={() => setActiveTf(t)}>{t}</button>
             ))}
             <div style={{ flex:1 }} />
-            <span style={{ fontFamily:'var(--mono)',fontSize:13,color:'var(--text-tertiary)' }}>{token.name}/{token.ticker} · night.fun</span>
+            <span style={{ fontFamily:'var(--mono)',fontSize:13,color:'var(--text-tertiary)' }}>{token.name}/{token.ticker} · stfu.fun</span>
           </div>
 
           {/* Chart */}

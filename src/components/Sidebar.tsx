@@ -69,13 +69,13 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
       <div className="sidebar-brand">
         {collapsed ? (
           <button type="button" onClick={onToggle} className="sidebar-brand-expand" aria-label="Expand sidebar">
-            <img src="/logo.png" alt="night.fun" className="sidebar-brand-icon" />
+            <img src="/logo.png" alt="stfu.fun" className="sidebar-brand-icon" />
           </button>
         ) : (
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-8)', textDecoration: 'none', flex: 1, minWidth: 0 }}>
-            <img src="/logo.png" alt="night.fun" className="sidebar-brand-icon" />
+            <img src="/logo.png" alt="stfu.fun" className="sidebar-brand-icon" />
             <span className="sidebar-brand-text">
-              night<em>.fun</em><sup className="sidebar-beta-badge">BETA</sup>
+              stfu<em>.fun</em><sup className="sidebar-beta-badge">BETA</sup>
             </span>
           </Link>
         )}
@@ -115,7 +115,7 @@ export default function Sidebar({ collapsed, onToggle }: { collapsed: boolean; o
 
       {/* Social links */}
       <div className="sidebar-social-links">
-        <a href="https://x.com/nightdotfun" target="_blank" rel="noopener noreferrer" className="sidebar-social-link" aria-label="Twitter / X">
+        <a href="https://x.com/stfudotfun" target="_blank" rel="noopener noreferrer" className="sidebar-social-link" aria-label="Twitter / X">
           <svg width="23" height="23" viewBox="0 0 24 24" fill="currentColor">
             <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
           </svg>

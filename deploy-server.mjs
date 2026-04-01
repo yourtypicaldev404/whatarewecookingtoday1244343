@@ -333,8 +333,8 @@ async function deployBondingCurve() {
   const zkConfig = new NodeZkConfigProvider(ZK_PATH);
   const providers = {
     privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: 'night-fun-state-' + Date.now(),
-      privateStoragePasswordProvider: () => 'night-fun-secret-2026',
+      privateStateStoreName: 'stfu-fun-state-' + Date.now(),
+      privateStoragePasswordProvider: () => 'stfu-fun-secret-2026',
       accountId: 'deployer-' + Date.now(),
     }),
     publicDataProvider:  indexerPublicDataProvider(INDEXER, INDEXERWS),
@@ -606,8 +606,8 @@ app.post('/deploy/signed', async (req, res) => {
     const zkConfig = new NodeZkConfigProvider(ZK_PATH);
     const providers = {
       privateStateProvider: levelPrivateStateProvider({
-        privateStateStoreName: 'night-fun-deploy-' + Date.now(),
-        privateStoragePasswordProvider: () => 'night-fun-secret-2026',
+        privateStateStoreName: 'stfu-fun-deploy-' + Date.now(),
+        privateStoragePasswordProvider: () => 'stfu-fun-secret-2026',
         accountId: 'deployer-' + Date.now(),
       }),
       publicDataProvider: indexerPublicDataProvider(INDEXER, INDEXERWS),
@@ -793,7 +793,7 @@ app.post('/trade/unproven', async (req, res) => {
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`Night.fun deploy server running on port ${PORT}`);
+  console.log(`Stfu.fun deploy server running on port ${PORT}`);
   console.log(`Network: ${NETWORK_ID} · indexer ${INDEXER}`);
   console.log(`Proof server: ${PROOF} (co-locate deploy + proof in the same region to cut latency)`);
 });

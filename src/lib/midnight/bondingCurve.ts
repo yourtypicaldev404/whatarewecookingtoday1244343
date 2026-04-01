@@ -1,5 +1,5 @@
 /**
- * night.fun — Bonding Curve Math
+ * stfu.fun — Bonding Curve Math
  * Mirrors the exact Compact contract arithmetic (Uint<128> throughout).
  * All bigint values are in base units (6 decimal places).
  */

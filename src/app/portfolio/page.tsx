@@ -57,7 +57,7 @@ export default function PortfolioPage() {
   if (!connected) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, textAlign: 'center', padding: '0 24px' }}>
-        <img src="/logo.png" alt="night.fun" style={{ width: 120, height: 120, marginBottom: 26 }} />
+        <img src="/logo.png" alt="stfu.fun" style={{ width: 120, height: 120, marginBottom: 26 }} />
         <h2 style={{ fontWeight: 700, fontSize: 31, letterSpacing: '-0.02em', marginBottom: 13, color: 'var(--text-primary)' }}>Connect to see your portfolio</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: 18, maxWidth: 494, marginBottom: 36, lineHeight: 1.6 }}>
           Connect your wallet to view your positions, P&L, and transaction history.
@@ -180,7 +180,7 @@ export default function PortfolioPage() {
             <div className="glass" style={{ padding: '42px 23px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', marginBottom: 8 }}>No positions yet</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
-                Buy tokens on night.fun to see your positions here
+                Buy tokens on stfu.fun to see your positions here
               </div>
             </div>
           )}
@@ -218,7 +218,7 @@ export default function PortfolioPage() {
             <div className="glass" style={{ padding: '42px 23px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', marginBottom: 8 }}>No tokens created yet</div>
               <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
-                Launch a token on night.fun and it will appear here
+                Launch a token on stfu.fun and it will appear here
               </div>
             </div>
           )}

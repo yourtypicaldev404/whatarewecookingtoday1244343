@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/snekbot-core",
+    "crates/snekbot-persist",
+    "crates/snekbot-wallet",
+]
+
+[workspace.dependencies]
+snekbot-core = { path = "crates/snekbot-core" }
+snekbot-persist = { path = "crates/snekbot-persist" }
+snekbot-wallet = { path = "crates/snekbot-wallet" }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+hex = "0.4"
+thiserror = "2"
+tracing = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+dashmap = "6"
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+bech32 = "0.11"
+blake2 = "0.10"
+hmac = "0.12"
+sha2 = "0.10"
+pbkdf2 = { version = "0.12", features = ["hmac"] }
+rand = "0.8"

@@ -1,9 +1,9 @@
 module.exports = {
   apps: [
     {
-      name: 'nightfun-deploy',
+      name: 'stfufun-deploy',
       script: 'deploy-server.mjs',
-      cwd: '/home/ubuntu/night.fun',
+      cwd: '/home/ubuntu/stfu.fun',
       node_args: '--max-old-space-size=4096',
       env: {
         PORT: 3002,

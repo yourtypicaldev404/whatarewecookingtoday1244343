@@ -14,7 +14,7 @@ const FAUCET =
       : "https://faucet.preview.midnight.network/";
 
 console.log("\n╔══════════════════════════════════════╗");
-console.log("║   night.fun — headless deploy        ║");
+console.log("║   stfu.fun — headless deploy         ║");
 console.log("╚══════════════════════════════════════╝");
 console.log(`Network (NEXT_PUBLIC_NETWORK_ID): ${NETWORK}\n`);
 

@@ -1,11 +1,11 @@
-# night.fun
+# stfu.fun
 
 **pump.fun for Midnight Network.**
 Users launch memecoins backed by real Zero Knowledge smart contracts. Each token has a bonding curve — price rises as people buy. When the curve fills (320,000 NIGHT, ~$15K), the token graduates to NorthStar DEX.
 
 Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transaction history.
 
-**Live: https://nightdotfun.vercel.app/**
+**Live: https://stfudotfun.vercel.app/**
 
 ---
 
@@ -38,7 +38,7 @@ Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transa
 | ZK contract compilation | Compact → WASM/zkir, circuits: `buy`, `sell`, `getProgress`, `pause`, `unpause` |
 | Token registry | Upstash Redis — persists address, reserves, volume, holder counts |
 | IPFS image upload | Upload via Pinata on launch, stored as `imageUri` in Redis |
-| Social links | Twitter/X (@nightdotfun), Discord on sidebar |
+| Social links | Twitter/X (@stfudotfun), Discord on sidebar |
 | Wallet connect | 1AM + Lace via DApp Connector v4, wallet picker modal, connect/disconnect |
 | Deploy server | PM2 on VPS, Express 5, port 3002 (iptables 80→3002), proof server co-located |
 | Portfolio page | `/portfolio` — empty state ready for real data when indexer supports ZK balances |

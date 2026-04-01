@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'night.fun-trade-proxy/1.0',
+          'User-Agent': 'stfu.fun-trade-proxy/1.0',
         },
         body: tradePayload,
         signal: AbortSignal.timeout(240_000),

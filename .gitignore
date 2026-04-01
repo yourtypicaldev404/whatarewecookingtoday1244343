@@ -7,10 +7,10 @@ contracts/managed/
 *.log
 logs/
 .DS_Store
-night-fun.db
+stfu-fun.db
 .vercel
 token-registry.json
 .env*.local
 midnight-level-db/
-night-fun-state/
+stfu-fun-state/
 *.ldb

@@ -1,8 +1,8 @@
-# night.fun Blockchain Interaction Architecture
+# stfu.fun Blockchain Interaction Architecture
 
 ## Overview
 
-night.fun is a bonding curve token launchpad built on [Midnight Network](https://midnight.network/), a blockchain with native zero-knowledge (ZK) privacy. The UX mirrors pump.fun on Solana -- users can launch tokens, buy and sell on bonding curves, and tokens graduate when they hit a reserve threshold -- but all state transitions are proven via ZK circuits under the hood.
+stfu.fun is a bonding curve token launchpad built on [Midnight Network](https://midnight.network/), a blockchain with native zero-knowledge (ZK) privacy. The UX mirrors pump.fun on Solana -- users can launch tokens, buy and sell on bonding curves, and tokens graduate when they hit a reserve threshold -- but all state transitions are proven via ZK circuits under the hood.
 
 **Core loop:**
 
@@ -96,7 +96,7 @@ Analogous to pump.fun's "create a coin" page.
 {
   "name": "Example Token",
   "ticker": "EXT",
-  "description": "A sample night.fun token",
+  "description": "A sample stfu.fun token",
   "imageUrl": "https://gateway.pinata.cloud/ipfs/Qm...",
   "creatorAddress": "midnight1abc...",
   "contractAddress": "midnight1xyz..."
@@ -342,7 +342,7 @@ Railway's `railway.json` or `Dockerfile` should include this flag.
 
 ## Comparison with pump.fun (Solana)
 
-| Aspect | pump.fun (Solana) | night.fun (Midnight) |
+| Aspect | pump.fun (Solana) | stfu.fun (Midnight) |
 |--------|-------------------|----------------------|
 | **Chain** | Solana (public, transparent) | Midnight (ZK privacy) |
 | **Token standard** | SPL tokens | Compact contracts (ZK circuits) |

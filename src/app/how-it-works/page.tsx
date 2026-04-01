@@ -89,9 +89,9 @@ export default function HowItWorksPage() {
 
         {/* Hero */}
         <div style={{ textAlign: 'center', marginBottom: 60 }}>
-          <img src="/logo.png" alt="night.fun" style={{ width: 100, height: 100, marginBottom: 20 }} />
+          <img src="/logo.png" alt="stfu.fun" style={{ width: 100, height: 100, marginBottom: 20 }} />
           <h1 style={{ fontSize: 40, fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 12 }}>
-            How <span style={{ color: '#0070f3' }}>night.fun</span> works
+            How <span style={{ color: '#0070f3' }}>stfu.fun</span> works
           </h1>
           <p style={{ fontSize: 18, color: 'var(--text-secondary)', maxWidth: 560, margin: '0 auto', lineHeight: 1.6 }}>
             The fairest way to launch tokens on Midnight. No presale, no insiders — just a bonding curve and ZK privacy.
@@ -135,7 +135,7 @@ export default function HowItWorksPage() {
         {/* Features grid */}
         <div style={{ marginBottom: 60 }}>
           <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', marginBottom: 8, textAlign: 'center' }}>
-            Why night.fun
+            Why stfu.fun
           </h2>
           <p style={{ fontSize: 16, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 32 }}>
             Privacy-first token launches powered by zero-knowledge proofs.

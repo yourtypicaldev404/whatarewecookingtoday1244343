@@ -123,8 +123,8 @@ async function main() {
   const zkConfig = new NodeZkConfigProvider(ZK_PATH);
   const providers = {
     privateStateProvider: levelPrivateStateProvider({
-      privateStateStoreName: "night-fun-state",
-      privateStoragePasswordProvider: () => "night-fun-secret-2026",
+      privateStateStoreName: "stfu-fun-state",
+      privateStoragePasswordProvider: () => "stfu-fun-secret-2026",
       accountId: "deployer",
     }),
     publicDataProvider:  indexerPublicDataProvider(INDEXER, INDEXERWS),

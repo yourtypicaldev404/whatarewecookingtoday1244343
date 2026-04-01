@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * night.fun — Wallet Provider (DApp Connector API v4.0.0)
+ * stfu.fun — Wallet Provider (DApp Connector API v4.0.0)
  *
  * Uses the real Midnight DApp Connector API:
  *   package: @midnight-ntwrk/dapp-connector-api
@@ -225,7 +225,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
 
       console.log('[Wallet] State:', { config, dustBalance, unshieldedAddr, dustAddr });
-      localStorage.setItem('nightfun-walletId', walletId);
+      localStorage.setItem('stfufun-walletId', walletId);
       connectingRef.current = false;
 
     } catch (err) {
@@ -233,14 +233,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (seq !== connectSeqRef.current) return;
       const msg = err instanceof Error ? err.message : 'Wallet connection failed';
       setState(s => ({ ...s, connecting: false, error: msg }));
-      localStorage.removeItem('nightfun-walletId');
+      localStorage.removeItem('stfufun-walletId');
     }
   }, []);
 
   // Auto-reconnect on mount
   useEffect(() => {
     const savedWalletId = typeof localStorage !== 'undefined'
-      ? localStorage.getItem('nightfun-walletId')
+      ? localStorage.getItem('stfufun-walletId')
       : null;
     if (savedWalletId) void connect(savedWalletId);
   }, [connect]);
@@ -256,7 +256,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       unshieldedAddr: null, dustAddr: null, dustBalance: BigInt(0),
       tokenBalances: {}, serviceConfig: null, connecting: false, error: null,
     });
-    localStorage.removeItem('nightfun-walletId');
+    localStorage.removeItem('stfufun-walletId');
   }, []);
 
   const getAvailableWallets = useCallback((): DetectedWallet[] => {

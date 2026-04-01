@@ -6,7 +6,7 @@ import Starfield from '@/components/Starfield';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'night.fun — Midnight Memecoin Launchpad',
+  title: 'stfu.fun — Midnight Memecoin Launchpad',
   description: 'Launch and trade memecoins on Midnight Network.',
   icons: { icon: '/logo.png', apple: '/logo.png' },
 };
