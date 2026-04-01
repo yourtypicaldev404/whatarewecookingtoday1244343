@@ -149,7 +149,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     error:          null,
   });
 
+  const connectingRef = useRef(false);
   const connect = useCallback(async (preferredId?: string) => {
+    // Skip if already connecting — prevents piling up pending wallet requests
+    if (connectingRef.current) return;
+    connectingRef.current = true;
     const seq = ++connectSeqRef.current;
     setState(s => ({ ...s, connecting: true, error: null }));
 
@@ -222,8 +226,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       console.log('[Wallet] State:', { config, dustBalance, unshieldedAddr, dustAddr });
       localStorage.setItem('nightfun-walletId', walletId);
+      connectingRef.current = false;
 
     } catch (err) {
+      connectingRef.current = false;
       if (seq !== connectSeqRef.current) return;
       const msg = err instanceof Error ? err.message : 'Wallet connection failed';
       setState(s => ({ ...s, connecting: false, error: msg }));
