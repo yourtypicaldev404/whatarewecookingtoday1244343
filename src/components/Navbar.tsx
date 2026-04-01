@@ -4,12 +4,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useWallet } from '@/lib/wallet/WalletProvider';
 import { PUBLIC_NETWORK_LABEL } from '@/lib/network';
+import WalletPickerModal from '@/components/WalletPickerModal';
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { connected, connecting, connect, disconnect } = useWallet();
+  const { connected, connecting, disconnect } = useWallet();
   const [q, setQ] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
     <nav>
@@ -39,7 +41,7 @@ export default function Navbar() {
 
       <button
         type="button"
-        onClick={() => (connected ? disconnect() : void connect())}
+        onClick={() => (connected ? disconnect() : setPickerOpen(true))}
         disabled={connecting}
         className={connected ? 'btn-wallet-connected' : 'btn-wallet'}
       >
@@ -51,6 +53,8 @@ export default function Navbar() {
           <span>Connect wallet</span>
         )}
       </button>
+
+      <WalletPickerModal open={pickerOpen} onClose={() => setPickerOpen(false)} />
     </nav>
   );
 }
