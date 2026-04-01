@@ -254,22 +254,37 @@ export async function deployBondingCurveViaWallet(
   const balancedHex = typeof balanced === 'string' ? balanced : (balanced as any).tx ?? '';
   console.log('[deploy] balanced tx length:', balancedHex.length);
 
-  // Deserialize → re-serialize (official SDK pattern from bboard example)
-  const balancedTx = ledger.Transaction.deserialize('signature', 'proof', 'binding', hexToBytes(balancedHex));
-  const reserializedHex = bytesToHex(balancedTx.serialize());
-
   onPhase?.('submitting');
-  console.log('[deploy] submitTransaction...');
-  try {
-    await wallet.submitTransaction(reserializedHex);
-  } catch (e: any) {
-    const msg = e?.message ?? String(e);
-    console.error('[deploy] submitTransaction failed:', msg);
-    throw new Error(`Transaction rejected: ${msg}`);
-  }
 
-  const txIds = balancedTx.identifiers();
-  const txId = txIds[0] ?? balancedTx.transactionHash();
+  // Try direct submit first, then try with re-serialization
+  let txId = '';
+  try {
+    console.log('[deploy] submitTransaction (direct)...');
+    await wallet.submitTransaction(balancedHex);
+    txId = txIdFromBalancedHex(balancedHex);
+  } catch (e1: any) {
+    console.warn('[deploy] direct submit failed:', e1?.message, '— trying re-serialized...');
+    try {
+      const balancedTx = ledger.Transaction.deserialize('signature', 'proof', 'binding', hexToBytes(balancedHex));
+      const reserializedHex = bytesToHex(balancedTx.serialize());
+      await wallet.submitTransaction(reserializedHex);
+      const txIds = balancedTx.identifiers();
+      txId = txIds[0] ?? balancedTx.transactionHash();
+    } catch (e2: any) {
+      // Both failed — try balanceSealedTransaction as last resort
+      console.warn('[deploy] re-serialized submit failed:', e2?.message, '— trying balanceSealedTransaction...');
+      try {
+        const sealedBalanced = await (wallet as any).balanceSealedTransaction(provedTxHex);
+        const sealedHex = typeof sealedBalanced === 'string' ? sealedBalanced : (sealedBalanced as any).tx ?? '';
+        await wallet.submitTransaction(sealedHex);
+        txId = txIdFromBalancedHex(sealedHex);
+      } catch (e3: any) {
+        const msg = e3?.message ?? String(e3);
+        console.error('[deploy] all submit attempts failed:', msg);
+        throw new Error(`Transaction rejected: ${msg}`);
+      }
+    }
+  }
   console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
   return { contractAddress, txId };
 }
