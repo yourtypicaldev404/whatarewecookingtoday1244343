@@ -303,7 +303,7 @@ async function buildWallet(seed) {
   await withTimeout(wallet.start(shieldedSK, dustSK), 30_000, 'wallet.start');
 
   console.log('[wallet] waitForSyncedState...');
-  await withTimeout(wallet.waitForSyncedState(), 90_000, 'waitForSyncedState');
+  await withTimeout(wallet.waitForSyncedState(), 300_000, 'waitForSyncedState');
 
   console.log('[wallet] synced');
   return { wallet, shieldedSK, dustSK, keystore };
@@ -758,5 +758,6 @@ const server = app.listen(PORT, () => {
 const _keepAlive = setInterval(() => {}, 15_000);
 if (_keepAlive.ref) _keepAlive.ref();
 
-// Warm contract WASM in background after server is listening
+// Warm contract WASM + wallet in background after server is listening
 getContract().catch(e => console.error('[init] Contract load failed:', e.message));
+ensureWalletReady().then(() => console.log('[init] Wallet pre-warmed and synced')).catch(e => console.error('[init] Wallet pre-warm failed:', e.message));
