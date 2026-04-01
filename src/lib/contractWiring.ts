@@ -226,7 +226,13 @@ export async function deployBondingCurveViaWallet(
 
   onPhase?.('submitting');
   console.log('[deploy] submitTransaction...');
-  await wallet.submitTransaction(balancedHex);
+  try {
+    await wallet.submitTransaction(balancedHex);
+  } catch (e: any) {
+    const msg = e?.message ?? String(e);
+    console.error('[deploy] submitTransaction failed:', msg);
+    throw new Error(`Transaction rejected by the network: ${msg}`);
+  }
 
   const txId = txIdFromBalancedHex(balancedHex);
   console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
