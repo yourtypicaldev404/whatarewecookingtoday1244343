@@ -219,72 +219,32 @@ export async function deployBondingCurveViaWallet(
     console.warn('[deploy] Could not get shielded keys, using server fallback:', e);
   }
 
-  // Server builds + proves tx using httpClientProofProvider (official SDK pattern)
+  // Server builds unproven tx, wallet proves + balances + submits
   onPhase?.('proving');
-  console.log('[deploy] POST /api/deploy/proved — server building + proving...');
-  const proveRes = await fetch('/api/deploy/proved', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...params,
-      userCoinPublicKey: coinPubKey,
-      userEncryptionPublicKey: encPubKey,
-    }),
-  });
-  if (!proveRes.ok) {
-    const text = await proveRes.text();
-    let msg = text;
-    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
-    throw new Error(msg);
-  }
-  const { provedTxHex, contractAddress } = await proveRes.json() as {
-    provedTxHex: string;
-    contractAddress: string;
-  };
-  console.log('[deploy] proved on server, contractAddress:', contractAddress);
 
-  // User's wallet balances (pays fees) and submits
+  // Get unproven tx from server
+  const { provedTxHex, contractAddress } = await getProvedDeployTx(
+    wallet, params, coinPubKey, encPubKey,
+  );
+
+  // The proved tx from getProvedDeployTx was proved via wallet's getProvingProvider.
+  // Now balance via wallet (user pays fees).
   onPhase?.('signing');
-  console.log('[deploy] balanceUnsealedTransaction via user wallet...');
+  console.log('[deploy] balancing via wallet...');
   const balanced = await withTimeout(
     wallet.balanceUnsealedTransaction(provedTxHex),
     120_000,
-    'Wallet did not respond. If using Lace, try 1AM wallet instead.',
+    'Wallet did not respond.',
   );
   const balancedHex = typeof balanced === 'string' ? balanced : (balanced as any).tx ?? '';
-  console.log('[deploy] balanced tx length:', balancedHex.length);
+  console.log('[deploy] balanced, length:', balancedHex.length);
 
+  // Submit via wallet — pass balanced hex directly (wallet knows the format)
   onPhase?.('submitting');
+  console.log('[deploy] submitting...');
+  await wallet.submitTransaction(balancedHex);
 
-  // Try direct submit first, then try with re-serialization
-  let txId = '';
-  try {
-    console.log('[deploy] submitTransaction (direct)...');
-    await wallet.submitTransaction(balancedHex);
-    txId = txIdFromBalancedHex(balancedHex);
-  } catch (e1: any) {
-    console.warn('[deploy] direct submit failed:', e1?.message, '— trying re-serialized...');
-    try {
-      const balancedTx = ledger.Transaction.deserialize('signature', 'proof', 'binding', hexToBytes(balancedHex));
-      const reserializedHex = bytesToHex(balancedTx.serialize());
-      await wallet.submitTransaction(reserializedHex);
-      const txIds = balancedTx.identifiers();
-      txId = txIds[0] ?? balancedTx.transactionHash();
-    } catch (e2: any) {
-      // Both failed — try balanceSealedTransaction as last resort
-      console.warn('[deploy] re-serialized submit failed:', e2?.message, '— trying balanceSealedTransaction...');
-      try {
-        const sealedBalanced = await (wallet as any).balanceSealedTransaction(provedTxHex);
-        const sealedHex = typeof sealedBalanced === 'string' ? sealedBalanced : (sealedBalanced as any).tx ?? '';
-        await wallet.submitTransaction(sealedHex);
-        txId = txIdFromBalancedHex(sealedHex);
-      } catch (e3: any) {
-        const msg = e3?.message ?? String(e3);
-        console.error('[deploy] all submit attempts failed:', msg);
-        throw new Error(`Transaction rejected: ${msg}`);
-      }
-    }
-  }
+  const txId = txIdFromBalancedHex(balancedHex);
   console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
   return { contractAddress, txId };
 }
