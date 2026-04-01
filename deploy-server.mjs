@@ -548,8 +548,7 @@ app.post('/deploy/proved', async (req, res) => {
 
     console.log('[deploy/proved] contractAddress:', contractAddress, '— proving via', PROOF, '...');
     const unprovenTx = unprovenData.private.unprovenTx;
-    const costModel = ledger.CostModel.initialCostModel();
-    const provedTx = await unprovenTx.prove(proofProvider, costModel);
+    const provedTx = await proofProvider.proveTx(unprovenTx);
     const provedTxHex = Buffer.from(provedTx.serialize()).toString('hex');
     console.log('[deploy/proved] proved — returning to browser for wallet balance + submit');
 
