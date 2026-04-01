@@ -196,42 +196,55 @@ async function getProvedTradeTx(
 // ── Deploy ──────────────────────────────────────────────────────────────────
 
 /**
- * Deploy a bonding curve token via the user's wallet.
+ * Deploy a bonding curve token.
  *
- * Uses the client-side flow: server builds an unproven tx (fast, no wallet sync
- * needed), then the user's already-synced wallet proves, balances, and submits.
- * Falls back to full server-side deploy only if the wallet lacks proving support.
+ * Server handles everything (prove + balance + submit) using its pre-warmed wallet.
+ * Lace's balanceUnsealedTransaction is broken (hangs after user approves), so we
+ * can't use the client-side flow for now. The user's wallet is only used to get
+ * their address as creator identity.
  */
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
   wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
+  // Get creator address from connected wallet
+  let creatorAddr = 'unknown';
+  try {
+    const addrResult = await withTimeout(wallet.getUnshieldedAddress(), 5_000, 'getUnshieldedAddress timeout');
+    creatorAddr = typeof addrResult === 'string' ? addrResult : (addrResult as any).unshieldedAddress ?? 'unknown';
+    console.log('[deploy] creator:', creatorAddr.slice(0, 20) + '...');
+  } catch (e) {
+    console.warn('[deploy] Could not get creator address:', e);
+  }
+
+  // Server deploys using its pre-warmed wallet (prove + balance + submit)
   onPhase?.('proving');
+  console.log('[deploy] POST /api/deploy/signed — server deploying...');
+  const res = await fetch('/api/deploy/signed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: params.name,
+      ticker: params.ticker,
+      signature: 'wallet-connected',
+      verifyingKey: creatorAddr,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let msg = text;
+    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
+    throw new Error(msg);
+  }
 
-  // Try client-side path: server builds unproven tx, user's wallet proves + submits
-  const { provedTxHex, contractAddress } = await getProvedDeployTx(
-    wallet, params, '', '',
-  );
-
-  // Balance and submit via user's wallet
-  onPhase?.('signing');
-  console.log('[deploy] balanceUnsealedTransaction...');
-  const balanced = await withTimeout(
-    wallet.balanceUnsealedTransaction(provedTxHex),
-    120_000,
-    'balanceUnsealedTransaction timed out',
-  );
-  const balancedHex = typeof balanced === 'string'
-    ? balanced
-    : (balanced as any).tx ?? (balanced as any).transaction ?? '';
+  const { contractAddress, txId } = await res.json() as {
+    contractAddress: string;
+    txId: string;
+  };
+  console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
 
   onPhase?.('submitting');
-  console.log('[deploy] submitTransaction...');
-  await wallet.submitTransaction(balancedHex);
-
-  const txId = txIdFromBalancedHex(balancedHex);
-  console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
   return { contractAddress, txId };
 }
 
