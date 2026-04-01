@@ -186,10 +186,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const [config, dustBalRaw, unshieldedAddr, dustAddr, unshieldedBals] =
         await Promise.all([
           withTimeout(connected.getConfiguration(), 10_000, { networkId: PUBLIC_NETWORK_ID } as any),
-          withTimeout(connected.getDustBalance(), 10_000, 0n),
-          withTimeout(connected.getUnshieldedAddress(), 10_000, ''),
-          withTimeout(connected.getDustAddress(), 10_000, ''),
-          withTimeout(connected.getUnshieldedBalances(), 10_000, {}),
+          withTimeout(connected.getDustBalance(), 10_000, { cap: 0n, balance: 0n }),
+          withTimeout(connected.getUnshieldedAddress(), 10_000, { unshieldedAddress: '' } as any),
+          withTimeout(connected.getDustAddress(), 10_000, { dustAddress: '' } as any),
+          withTimeout(connected.getUnshieldedBalances(), 10_000, {} as any),
         ]);
 
       const dustBalance = parseDustBalance(dustBalRaw);
