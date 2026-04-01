@@ -207,20 +207,11 @@ export async function deployBondingCurveViaWallet(
   wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Get user's shielded keys for the unproven tx
-  let coinPubKey = '';
-  let encPubKey = '';
-  try {
-    const config = await wallet.getConfiguration();
-    coinPubKey = (config as any).shieldedCoinPublicKey ?? '';
-    encPubKey = (config as any).shieldedEncryptionPublicKey ?? '';
-  } catch {}
-
   onPhase?.('proving');
 
   // Try client-side path: server builds unproven tx, user's wallet proves + submits
   const { provedTxHex, contractAddress } = await getProvedDeployTx(
-    wallet, params, coinPubKey, encPubKey,
+    wallet, params, '', '',
   );
 
   // Balance and submit via user's wallet
