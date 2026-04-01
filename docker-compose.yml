@@ -6,7 +6,7 @@
 #
 # Proof + deploy server in Docker (same network; deploy talks to proof at http://proof-server:6300):
 #   docker compose --profile full up -d --build
-#   curl http://localhost:3001/health
+#   curl http://localhost:3003/health
 #
 # Lace wallet (browser): Settings → Midnight → Prover Server → http://localhost:6300 when using local proof.
 
@@ -30,11 +30,11 @@ services:
       context: .
       dockerfile: Dockerfile.deploy
     ports:
-      - "3001:3001"
+      - "3003:3003"
     environment:
       PROOF_SERVER_URL: http://proof-server:6300
       NETWORK_ID: ${NETWORK_ID:-mainnet}
-      PORT: "3001"
+      PORT: "3003"
     # Optional: copy .env to project root or use `docker compose --env-file .env --profile full up`
     depends_on:
       proof-server:
