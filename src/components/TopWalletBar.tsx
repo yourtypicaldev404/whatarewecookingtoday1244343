@@ -32,7 +32,6 @@ export default function TopWalletBar() {
     const detected = getAvailableWallets();
     setWallets(detected);
     if (detected.length === 0) { void connect(); return; }
-    if (detected.length === 1) { void connect(detected[0].id); return; }
     setShowPicker(true);
   };
 
