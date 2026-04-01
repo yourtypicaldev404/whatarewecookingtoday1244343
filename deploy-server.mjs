@@ -515,6 +515,50 @@ app.post('/deploy/unproven', async (req, res) => {
   }
 });
 
+// Server builds + proves tx using httpClientProofProvider (official SDK pattern).
+// Returns proved tx hex for client wallet to balance (pay fees) + submit.
+app.post('/deploy/proved', async (req, res) => {
+  const { userCoinPublicKey, userEncryptionPublicKey } = req.body;
+  console.log('[deploy/proved] Building + proving deploy tx',
+    '| userCpk:', userCoinPublicKey ? userCoinPublicKey.slice(0, 20) + '...' : 'none');
+  try {
+    const zkConfig   = new NodeZkConfigProvider(ZK_PATH);
+    const creatorSk  = new Uint8Array(Buffer.from(SEED, 'hex').slice(0, 32));
+    const treasurySk = new Uint8Array(Buffer.from(TREASURY, 'hex').slice(0, 32));
+    const witnesses  = { treasurySecretKey: () => treasurySk };
+    const Contract = await getContract();
+    const compiledContract = CompiledContract.make('bonding_curve', Contract).pipe(
+      CompiledContract.withWitnesses(witnesses),
+      CompiledContract.withCompiledFileAssets(ZK_PATH),
+    );
+
+    const walletProvider = (userCoinPublicKey && userEncryptionPublicKey)
+      ? { getCoinPublicKey: () => userCoinPublicKey, getEncryptionPublicKey: () => userEncryptionPublicKey }
+      : TRADE_WALLET_PROVIDER;
+
+    // Use httpClientProofProvider — same as official bboard example
+    const proofProvider = httpClientProofProvider(PROOF, zkConfig);
+
+    console.log('[deploy/proved] createUnprovenDeployTx...');
+    const unprovenData = await createUnprovenDeployTx(
+      { zkConfigProvider: zkConfig, walletProvider },
+      { compiledContract, initialPrivateState: {}, args: [creatorSk, treasurySk] },
+    );
+    const contractAddress = unprovenData.public.contractAddress;
+
+    console.log('[deploy/proved] contractAddress:', contractAddress, '— proving via', PROOF, '...');
+    const unprovenTx = unprovenData.private.unprovenTx;
+    const provedTx = await unprovenTx.prove(proofProvider);
+    const provedTxHex = Buffer.from(provedTx.serialize()).toString('hex');
+    console.log('[deploy/proved] proved — returning to browser for wallet balance + submit');
+
+    res.json({ provedTxHex, contractAddress });
+  } catch (err) {
+    console.error('[deploy/proved] Failed:', err.message, '\n', err.stack);
+    res.status(500).json({ error: err.message, stack: err.stack?.split('\n').slice(0, 8) });
+  }
+});
+
 /**
  * Server-side deploy authorized by the user's Lace signData signature.
  *

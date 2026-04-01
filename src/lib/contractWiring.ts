@@ -219,14 +219,31 @@ export async function deployBondingCurveViaWallet(
     console.warn('[deploy] Could not get shielded keys, using server fallback:', e);
   }
 
-  // Server builds unproven tx + user's wallet proves it
+  // Server builds + proves tx using httpClientProofProvider (official SDK pattern)
   onPhase?.('proving');
-  const { provedTxHex, contractAddress } = await getProvedDeployTx(
-    wallet, params, coinPubKey, encPubKey,
-  );
+  console.log('[deploy] POST /api/deploy/proved — server building + proving...');
+  const proveRes = await fetch('/api/deploy/proved', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      ...params,
+      userCoinPublicKey: coinPubKey,
+      userEncryptionPublicKey: encPubKey,
+    }),
+  });
+  if (!proveRes.ok) {
+    const text = await proveRes.text();
+    let msg = text;
+    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
+    throw new Error(msg);
+  }
+  const { provedTxHex, contractAddress } = await proveRes.json() as {
+    provedTxHex: string;
+    contractAddress: string;
+  };
+  console.log('[deploy] proved on server, contractAddress:', contractAddress);
 
   // User's wallet balances (pays fees) and submits
-  // Following the official bboard example: deserialize balanced tx, then re-serialize for submit
   onPhase?.('signing');
   console.log('[deploy] balanceUnsealedTransaction via user wallet...');
   const balanced = await withTimeout(
@@ -237,7 +254,7 @@ export async function deployBondingCurveViaWallet(
   const balancedHex = typeof balanced === 'string' ? balanced : (balanced as any).tx ?? '';
   console.log('[deploy] balanced tx length:', balancedHex.length);
 
-  // Deserialize → re-serialize (matches official Midnight SDK pattern)
+  // Deserialize → re-serialize (official SDK pattern from bboard example)
   const balancedTx = ledger.Transaction.deserialize('signature', 'proof', 'binding', hexToBytes(balancedHex));
   const reserializedHex = bytesToHex(balancedTx.serialize());
 
