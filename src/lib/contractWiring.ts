@@ -226,42 +226,33 @@ export async function deployBondingCurveViaWallet(
   );
 
   // User's wallet balances (pays fees) and submits
+  // Following the official bboard example: deserialize balanced tx, then re-serialize for submit
   onPhase?.('signing');
-  console.log('[deploy] provedTxHex length:', provedTxHex.length, '| first 40 chars:', provedTxHex.slice(0, 40));
   console.log('[deploy] balanceUnsealedTransaction via user wallet...');
-  let balanced: any;
-  try {
-    balanced = await withTimeout(
-      wallet.balanceUnsealedTransaction(provedTxHex),
-      120_000,
-      'Wallet did not respond. If using Lace, try 1AM wallet instead.',
-    );
-  } catch (e: any) {
-    console.error('[deploy] balanceUnsealedTransaction failed:', e?.message ?? e);
-    throw new Error(`Balance failed: ${e?.message ?? e}`);
-  }
-  console.log('[deploy] balanced result type:', typeof balanced, '| keys:', balanced && typeof balanced === 'object' ? Object.keys(balanced) : 'n/a');
-  const balancedHex = typeof balanced === 'string'
-    ? balanced
-    : (balanced as any).tx ?? (balanced as any).transaction ?? (balanced as any).balanced ?? '';
-  console.log('[deploy] balancedHex length:', balancedHex.length);
+  const balanced = await withTimeout(
+    wallet.balanceUnsealedTransaction(provedTxHex),
+    120_000,
+    'Wallet did not respond. If using Lace, try 1AM wallet instead.',
+  );
+  const balancedHex = typeof balanced === 'string' ? balanced : (balanced as any).tx ?? '';
+  console.log('[deploy] balanced tx length:', balancedHex.length);
 
-  if (!balancedHex) {
-    console.error('[deploy] balancedHex is empty! raw balanced:', JSON.stringify(balanced).slice(0, 200));
-    throw new Error('Wallet returned empty balanced transaction. Check browser console for details.');
-  }
+  // Deserialize → re-serialize (matches official Midnight SDK pattern)
+  const balancedTx = ledger.Transaction.deserialize('signature', 'proof', 'binding', hexToBytes(balancedHex));
+  const reserializedHex = bytesToHex(balancedTx.serialize());
 
   onPhase?.('submitting');
-  console.log('[deploy] submitTransaction... hex length:', balancedHex.length);
+  console.log('[deploy] submitTransaction...');
   try {
-    await wallet.submitTransaction(balancedHex);
+    await wallet.submitTransaction(reserializedHex);
   } catch (e: any) {
     const msg = e?.message ?? String(e);
-    console.error('[deploy] submitTransaction failed:', msg, '| balancedHex first 40:', balancedHex.slice(0, 40));
-    throw new Error(`Transaction rejected by the network: ${msg}`);
+    console.error('[deploy] submitTransaction failed:', msg);
+    throw new Error(`Transaction rejected: ${msg}`);
   }
 
-  const txId = txIdFromBalancedHex(balancedHex);
+  const txIds = balancedTx.identifiers();
+  const txId = txIds[0] ?? balancedTx.transactionHash();
   console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
   return { contractAddress, txId };
 }
