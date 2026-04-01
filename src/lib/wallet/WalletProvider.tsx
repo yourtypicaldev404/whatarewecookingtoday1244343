@@ -178,15 +178,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await connected.hintUsage(CONNECT_HINT);
       }
 
-      // Pull wallet info (v4 shapes: getDustBalance → { balance, cap }, addresses → { unshieldedAddress }, etc.)
+      // Pull wallet info with timeouts — some wallets hang on certain calls
       console.log('[Wallet] Connected wallet:', walletId, 'API:', Object.keys(connected));
+      const withTimeout = <T,>(p: Promise<T>, ms: number, fallback: T): Promise<T> =>
+        Promise.race([p, new Promise<T>(r => setTimeout(() => r(fallback), ms))]);
+
       const [config, dustBalRaw, unshieldedAddr, dustAddr, unshieldedBals] =
         await Promise.all([
-          connected.getConfiguration(),
-          connected.getDustBalance(),
-          connected.getUnshieldedAddress(),
-          connected.getDustAddress(),
-          connected.getUnshieldedBalances(),
+          withTimeout(connected.getConfiguration(), 10_000, { networkId: PUBLIC_NETWORK_ID } as any),
+          withTimeout(connected.getDustBalance(), 10_000, 0n),
+          withTimeout(connected.getUnshieldedAddress(), 10_000, ''),
+          withTimeout(connected.getDustAddress(), 10_000, ''),
+          withTimeout(connected.getUnshieldedBalances(), 10_000, {}),
         ]);
 
       const dustBalance = parseDustBalance(dustBalRaw);
