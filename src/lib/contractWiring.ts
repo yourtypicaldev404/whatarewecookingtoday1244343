@@ -198,53 +198,38 @@ async function getProvedTradeTx(
 /**
  * Deploy a bonding curve token.
  *
- * Server handles everything (prove + balance + submit) using its pre-warmed wallet.
- * Lace's balanceUnsealedTransaction is broken (hangs after user approves), so we
- * can't use the client-side flow for now. The user's wallet is only used to get
- * their address as creator identity.
+ * Server builds + proves the tx (fast, no wallet sync needed).
+ * User's wallet balances (pays fees) and submits to chain.
  */
 export async function deployBondingCurveViaWallet(
   params: { name: string; ticker: string; description: string; imageUri: string },
   wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Get creator address from connected wallet
-  let creatorAddr = 'unknown';
-  try {
-    const addrResult = await withTimeout(wallet.getUnshieldedAddress(), 5_000, 'getUnshieldedAddress timeout');
-    creatorAddr = typeof addrResult === 'string' ? addrResult : (addrResult as any).unshieldedAddress ?? 'unknown';
-    console.log('[deploy] creator:', creatorAddr.slice(0, 20) + '...');
-  } catch (e) {
-    console.warn('[deploy] Could not get creator address:', e);
-  }
-
-  // Server deploys using its pre-warmed wallet (prove + balance + submit)
+  // Server builds unproven tx + proves it
   onPhase?.('proving');
-  console.log('[deploy] POST /api/deploy/signed — server deploying...');
-  const res = await fetch('/api/deploy/signed', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      name: params.name,
-      ticker: params.ticker,
-      signature: 'wallet-connected',
-      verifyingKey: creatorAddr,
-    }),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    let msg = text;
-    try { msg = (JSON.parse(text) as { error?: string }).error ?? text; } catch {}
-    throw new Error(msg);
-  }
+  const { provedTxHex, contractAddress } = await getProvedDeployTx(
+    wallet, params, '', '',
+  );
 
-  const { contractAddress, txId } = await res.json() as {
-    contractAddress: string;
-    txId: string;
-  };
-  console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
+  // User's wallet balances (pays fees) and submits
+  onPhase?.('signing');
+  console.log('[deploy] balanceUnsealedTransaction via user wallet...');
+  const balanced = await withTimeout(
+    wallet.balanceUnsealedTransaction(provedTxHex),
+    120_000,
+    'Wallet did not respond. If using Lace, try 1AM wallet instead.',
+  );
+  const balancedHex = typeof balanced === 'string'
+    ? balanced
+    : (balanced as any).tx ?? (balanced as any).transaction ?? '';
 
   onPhase?.('submitting');
+  console.log('[deploy] submitTransaction...');
+  await wallet.submitTransaction(balancedHex);
+
+  const txId = txIdFromBalancedHex(balancedHex);
+  console.log('[deploy] deployed! contractAddress:', contractAddress, '| txId:', txId);
   return { contractAddress, txId };
 }
 

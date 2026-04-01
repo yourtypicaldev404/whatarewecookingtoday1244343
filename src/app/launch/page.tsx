@@ -72,8 +72,8 @@ export default function LaunchPage() {
       <ZkWorkOverlay
         open={deployBusy} error={deployError}
         variant={deployPhase === 'saving' || deployPhase === 'submitting' ? 'saving' : 'proving'}
-        title={deployPhase === 'saving' ? 'Finishing up' : deployPhase === 'submitting' ? 'Almost done' : 'Deploying your token'}
-        subtitle={deployPhase === 'saving' ? 'Registering your token.' : deployPhase === 'submitting' ? 'Contract is live.' : 'Building ZK proof and deploying to Midnight. This may take 30-90 seconds.'}
+        title={deployPhase === 'saving' ? 'Finishing up' : deployPhase === 'submitting' ? 'Submitting to chain' : deployPhase === 'signing' ? 'Approve in wallet' : 'Building ZK proof'}
+        subtitle={deployPhase === 'saving' ? 'Registering your token.' : deployPhase === 'submitting' ? 'Broadcasting transaction.' : deployPhase === 'signing' ? 'Confirm the transaction in your wallet to pay fees.' : 'Server is building and proving the contract. 30-90 seconds.'}
         onDismiss={deployError ? () => { setDeployBusy(false); setDeployError(null); } : undefined}
       />
 
