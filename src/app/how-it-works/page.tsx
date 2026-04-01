@@ -20,8 +20,8 @@ const STEPS = [
   },
   {
     num: '4',
-    title: 'Token graduates at 69,000 NIGHT',
-    desc: 'When the bonding curve reserve hits 69,000 NIGHT, the token graduates. Liquidity is deposited to NorthStar DEX and LP tokens are burned — making the pool permanent and unruggable.',
+    title: 'Token graduates at 320,000 NIGHT',
+    desc: 'When the bonding curve reserve hits 320,000 NIGHT (~$15K), the token graduates. Liquidity is deposited to NorthStar DEX and LP tokens are burned — making the pool permanent and unruggable.',
   },
 ];
 
@@ -180,7 +180,7 @@ export default function HowItWorksPage() {
               ['Trading fee', '1%', 'Applied on each buy and sell'],
               ['Creator rev share', 'Portion of 1% fee', 'Paid to token creator per trade'],
               ['Network gas', 'Sponsored', 'Free with 1AM wallet via ProofStation'],
-              ['Graduation', 'Automatic', 'At 69,000 NIGHT reserve, LP burned on NorthStar'],
+              ['Graduation', 'Automatic', 'At 320,000 NIGHT reserve, LP burned on NorthStar'],
             ].map(([label, value, note], i, arr) => (
               <div key={label} style={{
                 display: 'flex', alignItems: 'center', padding: '16px 22px', gap: 16,

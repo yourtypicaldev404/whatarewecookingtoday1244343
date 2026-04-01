@@ -5,74 +5,24 @@ import Link from 'next/link';
 import { useWallet } from '@/lib/wallet/WalletProvider';
 import { fmtDust } from '@/lib/midnight/bondingCurve';
 
-// ── Mock data ──────────────────────────────────────────────────────────────
-const MOCK_POSITIONS = [
-  {
-    address: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
-    name: 'MidnightPepe',
-    ticker: 'MPEPE',
-    emoji: '🐸',
-    tokensHeld: 4_200_000_000_000n,
-    avgBuyPrice: 0.00000042,
-    currentPrice: 0.00000089,
-    adaReserve: 18_400_000_000n,
-    graduated: false,
-  },
-  {
-    address: 'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3',
-    name: 'ZK Doge',
-    ticker: 'ZKDOGE',
-    emoji: '🐕',
-    tokensHeld: 12_000_000_000_000n,
-    avgBuyPrice: 0.00000012,
-    currentPrice: 0.00000031,
-    adaReserve: 9_200_000_000n,
-    graduated: false,
-  },
-  {
-    address: 'c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
-    name: 'Night Inu',
-    ticker: 'NINU',
-    emoji: '🌙',
-    tokensHeld: 800_000_000_000n,
-    avgBuyPrice: 0.00000150,
-    currentPrice: 0.00000098,
-    adaReserve: 3_100_000_000n,
-    graduated: false,
-  },
-  {
-    address: 'd4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5',
-    name: 'Darkpool Cat',
-    ticker: 'DPCAT',
-    emoji: '🐱',
-    tokensHeld: 22_000_000_000_000n,
-    avgBuyPrice: 0.00000004,
-    currentPrice: 0.00000067,
-    adaReserve: 51_000_000_000n,
-    graduated: true,
-  },
-];
+// ── Data (will be populated from wallet/indexer) ──────────────────────────
+type Position = {
+  address: string; name: string; ticker: string; emoji: string;
+  tokensHeld: bigint; avgBuyPrice: number; currentPrice: number;
+  adaReserve: bigint; graduated: boolean;
+};
+type CreatedToken = {
+  address: string; name: string; ticker: string; emoji: string;
+  adaReserve: bigint; txCount: number; holderCount: number; graduated: boolean;
+};
+type Transaction = {
+  type: string; name: string; ticker: string;
+  dustAmt: bigint; tokenAmt: bigint; ago: string;
+};
 
-const MOCK_CREATED = [
-  {
-    address: 'e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6',
-    name: 'ShadowMoon',
-    ticker: 'SHMN',
-    emoji: '🌑',
-    adaReserve: 7_800_000_000n,
-    txCount: 34,
-    holderCount: 12,
-    graduated: false,
-  },
-];
-
-const MOCK_TXS = [
-  { type: 'buy',  name: 'MidnightPepe', ticker: 'MPEPE', dustAmt: 50_000_000n,   tokenAmt: 2_100_000_000_000n, ago: '2h ago' },
-  { type: 'buy',  name: 'ZK Doge',      ticker: 'ZKDOGE', dustAmt: 100_000_000n, tokenAmt: 8_333_333_333_333n, ago: '5h ago' },
-  { type: 'sell', name: 'Night Inu',    ticker: 'NINU',   dustAmt: 12_000_000n,  tokenAmt: 200_000_000_000n,   ago: '1d ago' },
-  { type: 'buy',  name: 'Darkpool Cat', ticker: 'DPCAT',  dustAmt: 80_000_000n,  tokenAmt: 20_000_000_000_000n, ago: '3d ago' },
-  { type: 'buy',  name: 'Night Inu',    ticker: 'NINU',   dustAmt: 150_000_000n, tokenAmt: 1_000_000_000_000n,  ago: '4d ago' },
-];
+const positions: Position[] = [];
+const createdTokens: CreatedToken[] = [];
+const transactions: Transaction[] = [];
 
 function fmtTokens(n: bigint) {
   const m = Number(n) / 1_000_000_000_000;
@@ -81,9 +31,10 @@ function fmtTokens(n: bigint) {
   return m.toFixed(2);
 }
 
-function pnl(pos: typeof MOCK_POSITIONS[0]) {
+function pnl(pos: Position) {
   const cost    = Number(pos.tokensHeld) / 1e12 * pos.avgBuyPrice;
   const current = Number(pos.tokensHeld) / 1e12 * pos.currentPrice;
+  if (cost === 0) return { pct: 0, dust: 0n };
   return { pct: ((current - cost) / cost) * 100, dust: BigInt(Math.round((current - cost) * 1e6)) };
 }
 
@@ -92,10 +43,10 @@ export default function PortfolioPage() {
   const { connected, connect, connecting } = useWallet();
 
   const totals = useMemo(() => {
-    const totalValue = MOCK_POSITIONS.reduce((acc, p) => {
+    const totalValue = positions.reduce((acc, p) => {
       return acc + BigInt(Math.round(Number(p.tokensHeld) / 1e12 * p.currentPrice * 1e6));
     }, 0n);
-    const totalCost = MOCK_POSITIONS.reduce((acc, p) => {
+    const totalCost = positions.reduce((acc, p) => {
       return acc + BigInt(Math.round(Number(p.tokensHeld) / 1e12 * p.avgBuyPrice * 1e6));
     }, 0n);
     const unrealizedPnl = totalValue - totalCost;
@@ -131,7 +82,6 @@ export default function PortfolioPage() {
         <div style={{ marginBottom: 42 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 8 }}>
             <span style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.07em' }}>Portfolio</span>
-            <span style={{ fontSize: 14, fontFamily: 'var(--mono)', color: 'var(--primary-color)', background: 'rgba(var(--primary-rgb),.12)', border: '1px solid rgba(var(--primary-rgb),.25)', borderRadius: 'var(--radius-sm)', padding: '3px 10px' }}>mock data</span>
           </div>
           <h1 style={{ fontSize: 'clamp(24px,3.5vw,36px)', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 0 }}>Your Holdings</h1>
         </div>
@@ -153,13 +103,13 @@ export default function PortfolioPage() {
             },
             {
               label: 'Tokens Held',
-              value: MOCK_POSITIONS.length.toString(),
-              sub: `${MOCK_POSITIONS.filter(p => p.graduated).length} graduated`,
+              value: positions.length.toString(),
+              sub: `${positions.filter(p => p.graduated).length} graduated`,
               color: 'var(--warning)',
             },
             {
               label: 'Tokens Created',
-              value: MOCK_CREATED.length.toString(),
+              value: createdTokens.length.toString(),
               sub: 'by you',
               color: '#22d3ee',
             },
@@ -175,111 +125,138 @@ export default function PortfolioPage() {
         {/* Positions */}
         <div style={{ marginBottom: 40 }}>
           <h2 style={{ fontWeight: 700, fontSize: 21, marginBottom: 18, letterSpacing: '-0.02em' }}>Positions</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-            {MOCK_POSITIONS.map(pos => {
-              const { pct, dust } = pnl(pos);
-              const positive = pct >= 0;
-              return (
-                <Link key={pos.address} href={`/token/${pos.address}`} style={{ textDecoration: 'none' }}>
-                  <div className="glass token-card" style={{ padding: '21px 23px', display: 'flex', alignItems: 'center', gap: 21, flexWrap: 'wrap', borderColor: pos.graduated ? 'rgba(var(--primary-rgb),.18)' : 'var(--border-color)' }}>
-                    <div style={{ width: 57, height: 57, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${pos.address.slice(2,8)},#${pos.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 29, flexShrink: 0 }}>{pos.emoji}</div>
+          {positions.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+              {positions.map(pos => {
+                const { pct, dust } = pnl(pos);
+                const positive = pct >= 0;
+                return (
+                  <Link key={pos.address} href={`/token/${pos.address}`} style={{ textDecoration: 'none' }}>
+                    <div className="glass token-card" style={{ padding: '21px 23px', display: 'flex', alignItems: 'center', gap: 21, flexWrap: 'wrap', borderColor: pos.graduated ? 'rgba(var(--primary-rgb),.18)' : 'var(--border-color)' }}>
+                      <div style={{ width: 57, height: 57, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${pos.address.slice(2,8)},#${pos.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 29, flexShrink: 0 }}>{pos.emoji}</div>
 
-                    <div style={{ flex: '1 1 120px', minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontWeight: 700, fontSize: 20 }}>{pos.name}</span>
-                        {pos.graduated && <span className="badge badge-green">Graduated</span>}
+                      <div style={{ flex: '1 1 120px', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 20 }}>{pos.name}</span>
+                          {pos.graduated && <span className="badge badge-green">Graduated</span>}
+                        </div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--primary-color)' }}>${pos.ticker}</div>
                       </div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--primary-color)' }}>${pos.ticker}</div>
-                    </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600 }}>{fmtTokens(pos.tokensHeld)}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>tokens</div>
-                    </div>
-
-                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 104 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: 'var(--primary-color)' }}>
-                        ₾{fmtDust(BigInt(Math.round(Number(pos.tokensHeld) / 1e12 * pos.currentPrice * 1e6)), 2)}
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600 }}>{fmtTokens(pos.tokensHeld)}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>tokens</div>
                       </div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>value</div>
-                    </div>
 
-                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 104 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: positive ? 'var(--primary-color)' : 'var(--danger)' }}>
-                        {positive ? '+' : ''}{pct.toFixed(1)}%
+                      <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 104 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: 'var(--primary-color)' }}>
+                          {fmtDust(BigInt(Math.round(Number(pos.tokensHeld) / 1e12 * pos.currentPrice * 1e6)), 2)}
+                        </div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>value</div>
                       </div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: positive ? 'var(--primary-color)' : 'var(--danger)', opacity: 0.75 }}>
-                        {positive ? '+' : '-'}₾{fmtDust(dust < 0n ? -dust : dust, 2)}
-                      </div>
-                    </div>
 
-                    <button
-                      className="btn btn-primary"
-                      style={{ flexShrink: 0, fontSize: 16, padding: '8px 21px', borderRadius: 'var(--radius-pill)' }}
-                      onClick={e => { e.preventDefault(); e.stopPropagation(); }}
-                    >
-                      Trade
-                    </button>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                      <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 104 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600, color: positive ? 'var(--primary-color)' : 'var(--danger)' }}>
+                          {positive ? '+' : ''}{pct.toFixed(1)}%
+                        </div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: positive ? 'var(--primary-color)' : 'var(--danger)', opacity: 0.75 }}>
+                          {positive ? '+' : '-'}{fmtDust(dust < 0n ? -dust : dust, 2)}
+                        </div>
+                      </div>
+
+                      <button
+                        className="btn btn-primary"
+                        style={{ flexShrink: 0, fontSize: 16, padding: '8px 21px', borderRadius: 'var(--radius-pill)' }}
+                        onClick={e => { e.preventDefault(); e.stopPropagation(); }}
+                      >
+                        Trade
+                      </button>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="glass" style={{ padding: '42px 23px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', marginBottom: 8 }}>No positions yet</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
+                Buy tokens on night.fun to see your positions here
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Created tokens */}
         <div style={{ marginBottom: 40 }}>
           <h2 style={{ fontWeight: 700, fontSize: 21, marginBottom: 18, letterSpacing: '-0.02em' }}>Tokens You Created</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-            {MOCK_CREATED.map(tok => (
-              <Link key={tok.address} href={`/token/${tok.address}`} style={{ textDecoration: 'none' }}>
-                <div className="glass token-card" style={{ padding: '21px 23px', display: 'flex', alignItems: 'center', gap: 21, flexWrap: 'wrap' }}>
-                  <div style={{ width: 57, height: 57, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${tok.address.slice(2,8)},#${tok.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 29, flexShrink: 0 }}>{tok.emoji}</div>
-                  <div style={{ flex: '1 1 120px', minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 20 }}>{tok.name}</div>
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--primary-color)' }}>${tok.ticker}</div>
-                  </div>
-                  {[
-                    { label: 'Holders', value: tok.holderCount.toString() },
-                    { label: 'Txns',    value: tok.txCount.toString() },
-                    { label: 'Volume',  value: `₾${fmtDust(tok.adaReserve / 10n, 0)}` },
-                  ].map(({ label, value }) => (
-                    <div key={label} style={{ textAlign: 'right', flexShrink: 0, minWidth: 78 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600 }}>{value}</div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>{label}</div>
+          {createdTokens.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+              {createdTokens.map(tok => (
+                <Link key={tok.address} href={`/token/${tok.address}`} style={{ textDecoration: 'none' }}>
+                  <div className="glass token-card" style={{ padding: '21px 23px', display: 'flex', alignItems: 'center', gap: 21, flexWrap: 'wrap' }}>
+                    <div style={{ width: 57, height: 57, borderRadius: 'var(--radius-md)', background: `linear-gradient(135deg,#${tok.address.slice(2,8)},#${tok.address.slice(8,14)})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 29, flexShrink: 0 }}>{tok.emoji}</div>
+                    <div style={{ flex: '1 1 120px', minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 20 }}>{tok.name}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--primary-color)' }}>${tok.ticker}</div>
                     </div>
-                  ))}
-                  <span style={{ flexShrink: 0, fontSize: 16, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', padding: '7px 16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>Creator</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+                    {[
+                      { label: 'Holders', value: tok.holderCount.toString() },
+                      { label: 'Txns',    value: tok.txCount.toString() },
+                      { label: 'Volume',  value: `${fmtDust(tok.adaReserve / 10n, 0)}` },
+                    ].map(({ label, value }) => (
+                      <div key={label} style={{ textAlign: 'right', flexShrink: 0, minWidth: 78 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 18, fontWeight: 600 }}>{value}</div>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>{label}</div>
+                      </div>
+                    ))}
+                    <span style={{ flexShrink: 0, fontSize: 16, fontFamily: 'var(--mono)', color: 'var(--text-tertiary)', padding: '7px 16px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)' }}>Creator</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="glass" style={{ padding: '42px 23px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', marginBottom: 8 }}>No tokens created yet</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
+                Launch a token on night.fun and it will appear here
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Recent transactions */}
         <div>
           <h2 style={{ fontWeight: 700, fontSize: 21, marginBottom: 18, letterSpacing: '-0.02em' }}>Recent Transactions</h2>
-          <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-            {MOCK_TXS.map((tx, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 21, padding: '18px 23px', borderBottom: i < MOCK_TXS.length - 1 ? '1px solid var(--border-color)' : 'none', flexWrap: 'wrap' }}>
-                <div style={{ width: 42, height: 42, borderRadius: 'var(--radius-sm)', background: tx.type === 'buy' ? 'rgba(var(--primary-rgb),.12)' : 'rgba(var(--danger-rgb),.12)', border: `1px solid ${tx.type === 'buy' ? 'rgba(var(--primary-rgb),.25)' : 'rgba(var(--danger-rgb),.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                  {tx.type === 'buy' ? '↑' : '↓'}
+          {transactions.length > 0 ? (
+            <div className="glass" style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+              {transactions.map((tx, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 21, padding: '18px 23px', borderBottom: i < transactions.length - 1 ? '1px solid var(--border-color)' : 'none', flexWrap: 'wrap' }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 'var(--radius-sm)', background: tx.type === 'buy' ? 'rgba(var(--primary-rgb),.12)' : 'rgba(var(--danger-rgb),.12)', border: `1px solid ${tx.type === 'buy' ? 'rgba(var(--primary-rgb),.25)' : 'rgba(var(--danger-rgb),.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                    {tx.type === 'buy' ? '+' : '-'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 100 }}>
+                    <span style={{ fontWeight: 600, fontSize: 18 }}>{tx.type === 'buy' ? 'Bought' : 'Sold'} </span>
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 18, color: 'var(--primary-color)' }}>${tx.ticker}</span>
+                    <span style={{ fontWeight: 400, fontSize: 18 }}> · {tx.name}</span>
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 17, color: tx.type === 'buy' ? 'var(--primary-color)' : 'var(--danger)', flexShrink: 0 }}>
+                    {tx.type === 'buy' ? '+' : '-'}{fmtTokens(tx.tokenAmt)} tokens
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 17, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 104, textAlign: 'right' }}>
+                    {fmtDust(tx.dustAmt, 2)}
+                  </div>
+                  <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 73, textAlign: 'right' }}>{tx.ago}</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 100 }}>
-                  <span style={{ fontWeight: 600, fontSize: 18 }}>{tx.type === 'buy' ? 'Bought' : 'Sold'} </span>
-                  <span style={{ fontFamily: 'var(--mono)', fontSize: 18, color: 'var(--primary-color)' }}>${tx.ticker}</span>
-                  <span style={{ fontWeight: 400, fontSize: 18 }}> · {tx.name}</span>
-                </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 17, color: tx.type === 'buy' ? 'var(--primary-color)' : 'var(--danger)', flexShrink: 0 }}>
-                  {tx.type === 'buy' ? '+' : '-'}{fmtTokens(tx.tokenAmt)} tokens
-                </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 17, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 104, textAlign: 'right' }}>
-                  ₾{fmtDust(tx.dustAmt, 2)}
-                </div>
-                <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', flexShrink: 0, minWidth: 73, textAlign: 'right' }}>{tx.ago}</div>
+              ))}
+            </div>
+          ) : (
+            <div className="glass" style={{ padding: '42px 23px', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 16, color: 'var(--text-tertiary)', marginBottom: 8 }}>No transactions yet</div>
+              <div style={{ fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--text-tertiary)' }}>
+                Your trade history will appear here
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
       </div>

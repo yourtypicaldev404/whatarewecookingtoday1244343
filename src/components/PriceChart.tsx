@@ -1,11 +1,15 @@
 'use client';
 import { useEffect, useRef } from 'react';
 
-export default function PriceChart({ ticker }: { ticker: string }) {
+export type PricePoint = { time: number; value: number };
+
+export default function PriceChart({ ticker, data }: { ticker: string; data?: PricePoint[] }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!ref.current) return;
+    if (!data || data.length === 0) return;
+
     let chart: any;
 
     import('lightweight-charts').then(({ createChart, ColorType, LineStyle }) => {
@@ -32,18 +36,22 @@ export default function PriceChart({ ticker }: { ticker: string }) {
         lineWidth: 2,
       });
 
-      // Mock price data — replace with real indexer data
-      const now = Math.floor(Date.now() / 1000);
-      const data = Array.from({ length: 50 }, (_, i) => ({
-        time: (now - (50 - i) * 300) as any,
-        value: 0.000001 * (1 + Math.random() * 0.5 + i * 0.02),
-      }));
-      series.setData(data);
+      series.setData(data.map(d => ({ time: d.time as any, value: d.value })));
       chart.timeScale().fitContent();
     });
 
     return () => chart?.remove();
-  }, [ticker]);
+  }, [ticker, data]);
+
+  if (!data || data.length === 0) {
+    return (
+      <div ref={ref} style={{ width: '100%', height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 14, color: 'var(--text-tertiary)' }}>
+          No price data yet
+        </span>
+      </div>
+    );
+  }
 
   return <div ref={ref} style={{ width: '100%', height: 280 }} />;
 }

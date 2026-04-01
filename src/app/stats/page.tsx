@@ -67,7 +67,7 @@ const OVERVIEW_CARDS = (o: Stats['overview']) => [
   {
     label: 'Avg. Bonded %',
     value: o.totalTokens > 0
-      ? `${(Number(BigInt(o.totalLiquidity) * 100n / (BigInt(Math.max(o.totalTokens, 1)) * 69_000_000_000n))).toFixed(2)}%`
+      ? `${(Number(BigInt(o.totalLiquidity) * 100n / (BigInt(Math.max(o.totalTokens, 1)) * 320_000_000_000n))).toFixed(2)}%`
       : '0%',
     sub: 'Avg reserve / graduation target',
     color: '#0070f3',

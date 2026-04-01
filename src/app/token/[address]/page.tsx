@@ -61,19 +61,64 @@ export default function TokenPage() {
 
   const chartRef = useRef<HTMLDivElement>(null);
 
-  // Load token
+  // ── Fetch real contract state from indexer (server-side proxy) ──────────
+  const refreshFromIndexer = useCallback(async (addr: string, currentToken?: any) => {
+    try {
+      const res = await fetch(`/api/indexer/${encodeURIComponent(addr)}`);
+      if (!res.ok) {
+        console.warn('[indexer] Fetch failed:', res.status);
+        return null;
+      }
+      const { contractState } = await res.json();
+      if (!contractState) return null;
+
+      console.log('[indexer] Got real contract state:', contractState);
+
+      // Merge indexer state into token record
+      const base = currentToken ?? {};
+      const merged = {
+        ...base,
+        adaReserve:   contractState.adaReserve,
+        tokenReserve: contractState.tokenReserve,
+        totalVolume:  contractState.totalVolume,
+        txCount:      contractState.txCount,
+        graduated:    contractState.state === 'GRADUATED',
+      };
+      setToken(merged);
+
+      // Also push the verified state to Redis so other clients see it
+      fetch(`/api/tokens/${encodeURIComponent(addr)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verify: true, source: 'indexer' }),
+      }).catch(console.error);
+
+      return contractState;
+    } catch (err) {
+      console.warn('[indexer] Error fetching contract state:', err);
+      return null;
+    }
+  }, []);
+
+  // Load token from Redis, then try to enrich with real indexer state
   useEffect(() => {
     fetch('/api/tokens?limit=200')
       .then(r => r.json())
       .then(({ tokens }) => {
         const found = tokens?.find((t: any) => t.address === address);
-        setToken(found ?? {
+        const tokenData = found ?? {
           address, name: address?.slice(0, 8) + '...', ticker: 'UNK',
           description: '', adaReserve: '0', tokenReserve: '999000000000000',
           totalVolume: '0', txCount: 0, holderCount: 1, graduated: false,
-        });
+        };
+        setToken(tokenData);
+
+        // Try to get real on-chain state from the indexer
+        if (address) {
+          refreshFromIndexer(address, tokenData);
+        }
       });
-  }, [address]);
+  }, [address, refreshFromIndexer]);
 
   // Chart
   useEffect(() => {
@@ -97,14 +142,9 @@ export default function TokenPage() {
         lineColor: '#ffffff', topColor: 'rgba(255,255,255,0.08)',
         bottomColor: 'rgba(255,255,255,0)', lineWidth: 1.5,
       });
-      const now = Math.floor(Date.now() / 1000);
-      let v = 0.000001;
-      const data = Array.from({ length: 120 }, (_, i) => {
-        v *= (1 + (Math.random() - 0.46) * 0.04);
-        return { time: (now - (120 - i) * 300) as any, value: Math.max(v, 0.0000001) };
-      });
-      area.setData(data);
-      chart.timeScale().fitContent();
+      // TODO: fetch real trade/candle data from indexer
+      // area.setData(realData);
+      // chart.timeScale().fitContent();
     });
     return () => { chart?.remove(); };
   }, [token]);
@@ -200,31 +240,43 @@ export default function TokenPage() {
         txId = tx?.identifiers?.()?.[0] ?? txId;
       } catch { /* best effort */ }
 
-      const patchPayload = tradeMode === 'buy'
-        ? { action: 'buy', adaIn: adaIn.toString(), tokensOut: payload.tokensOut }
-        : { action: 'sell', tokensIn: tokensIn.toString(), adaOut: payload.adaOut };
-
-      fetch(`/api/tokens/${address}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patchPayload),
-      }).catch(console.error);
-
       setTradeOpen(false);
       setAmount('');
       setPreset('');
 
-      fetch('/api/tokens?limit=200')
-        .then(r => r.json())
-        .then(({ tokens }) => {
-          const found = tokens?.find((t: any) => t.address === address);
-          if (found) setToken(found);
-        });
+      // After successful trade: fetch real on-chain state from the indexer.
+      // The indexer may take a few seconds to reflect the new tx, so we
+      // try immediately (optimistic) and again after a short delay.
+      const refreshAfterTrade = async () => {
+        // Immediate attempt — may still show pre-trade state
+        const immediate = await refreshFromIndexer(address!, token);
+        if (!immediate) {
+          // Indexer not yet caught up — fallback: re-fetch from Redis
+          fetch('/api/tokens?limit=200')
+            .then(r => r.json())
+            .then(({ tokens: toks }) => {
+              const found = toks?.find((t: any) => t.address === address);
+              if (found) setToken(found);
+            })
+            .catch(console.error);
+        }
+
+        // Retry after 5s for the indexer to catch up with the new block
+        setTimeout(() => {
+          refreshFromIndexer(address!, token);
+        }, 5_000);
+
+        // Final retry at 15s — should definitely be indexed by now
+        setTimeout(() => {
+          refreshFromIndexer(address!, token);
+        }, 15_000);
+      };
+      refreshAfterTrade();
 
     } catch (err: any) {
       setTradeError(err.message || 'Trade failed');
     }
-  }, [amount, connected, api, connect, tradeMode, address, token]);
+  }, [amount, connected, api, connect, tradeMode, address, token, refreshFromIndexer]);
 
   if (!token) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-tertiary)', fontFamily: 'var(--mono)', fontSize: 17 }}>
@@ -246,13 +298,8 @@ export default function TokenPage() {
   const BUY_PRESETS  = ['25', '100', '250', '500'];
   const SELL_PRESETS = ['25%', '50%', '75%', '100%'];
 
-  const mockTrades = Array.from({ length: 10 }, (_, i) => ({
-    type: i % 3 === 0 ? 'sell' : 'buy',
-    wallet: addr.slice(0,4) + '...' + i.toString(16).padStart(4,'0'),
-    night: (Math.random() * 800 + 20).toFixed(1),
-    tokens: Math.floor(Math.random() * 500000 + 5000),
-    age: `${i + 1}m`,
-  }));
+  // Real trades will be populated from the indexer
+  const trades: { type: string; wallet: string; night: string; tokens: number; age: string }[] = [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -340,8 +387,13 @@ export default function TokenPage() {
           </div>
 
           {/* Chart */}
-          <div style={{ background:'var(--bg-main)',flex:'0 0 280px' }}>
+          <div style={{ background:'var(--bg-main)',flex:'0 0 280px',position:'relative' }}>
             <div ref={chartRef} style={{ height:'100%' }} />
+            <div style={{ position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none' }}>
+              <span style={{ fontFamily:'var(--mono)',fontSize:14,color:'var(--text-tertiary)',background:'var(--bg-main)',padding:'6px 16px',borderRadius:'var(--radius-sm)',border:'1px solid var(--border-color)' }}>
+                No trades yet — chart will populate with real data
+              </span>
+            </div>
           </div>
 
           {/* Curve bar */}
@@ -372,11 +424,11 @@ export default function TokenPage() {
           {/* Tab content */}
           <div style={{ flex:1,overflowY:'auto' }}>
             {activeTab === 'trades' && (
-              <>
+              trades.length > 0 ? (
                 <table className="data-table">
                   <thead><tr><th>Type</th><th>Wallet</th><th>NIGHT</th><th>Tokens</th><th>Age</th></tr></thead>
                   <tbody>
-                    {mockTrades.map((tx,i) => (
+                    {trades.map((tx,i) => (
                       <tr key={i}>
                         <td><span style={{ color:tx.type==='buy'?'var(--primary-color)':'var(--danger)',fontWeight:600 }}>{tx.type.toUpperCase()}</span></td>
                         <td style={{ fontFamily:'var(--mono)',fontSize:11 }}>{tx.wallet}</td>
@@ -387,10 +439,12 @@ export default function TokenPage() {
                     ))}
                   </tbody>
                 </table>
-                <div style={{ textAlign:'center',padding:21,fontFamily:'var(--mono)',fontSize:14,color:'var(--text-tertiary)' }}>
-                  Live trade history — indexer integration in progress
+              ) : (
+                <div style={{ display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'52px 21px',color:'var(--text-tertiary)' }}>
+                  <div style={{ fontFamily:'var(--mono)',fontSize:16,marginBottom:8 }}>No trades yet</div>
+                  <div style={{ fontFamily:'var(--mono)',fontSize:13 }}>Trades will appear here once this token has activity</div>
                 </div>
-              </>
+              )
             )}
             {activeTab === 'holders' && (
               <div style={{ display:'flex',alignItems:'center',justifyContent:'center',height:156,fontFamily:'var(--mono)',fontSize:16,color:'var(--text-tertiary)' }}>
@@ -403,7 +457,7 @@ export default function TokenPage() {
                   ['Contract',  addr.slice(0,14)+'...'],
                   ['Network',   'Midnight '+(process.env.NEXT_PUBLIC_NETWORK_ID??'preprod')],
                   ['Supply',    '1,000,000,000'],
-                  ['Target',    '69,000 NIGHT'],
+                  ['Target',    '320,000 NIGHT'],
                   ['Deployed',  token.deployedAt ? new Date(token.deployedAt*1000).toLocaleDateString() : '—'],
                   ['Creator',   token.creatorAddr ? token.creatorAddr.slice(0,12)+'...' : '—'],
                 ].map(([l,v]) => (
@@ -520,7 +574,7 @@ export default function TokenPage() {
               ['Dev holdings','0%','var(--primary-color)'],
               ['Holders',String(token.holderCount??1),'var(--text-secondary)'],
               ['Total txns',String(token.txCount??0),'var(--text-secondary)'],
-              ['Curve target','69,000 NIGHT','var(--text-secondary)'],
+              ['Curve target','320,000 NIGHT','var(--text-secondary)'],
             ].map(([l,v,c]) => (
               <div key={l} style={{ display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:'1px solid var(--border-color)' }}>
                 <span style={{ fontFamily:'var(--mono)',fontSize:13,color:'var(--text-tertiary)',textTransform:'uppercase',letterSpacing:'.06em' }}>{l}</span>

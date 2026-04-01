@@ -217,7 +217,7 @@ export default function LaunchPage() {
                 </div>
               </div>
               <div style={{ background:'var(--bg-main)', border:'1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding:'17px 21px', marginBottom: 26 }}>
-                {[['Total supply','1,000,000,000'],['Graduation','69,000 NIGHT'],['Trade fee','1%'],['Network',`Midnight ${PUBLIC_NETWORK_LABEL}`]].map(([k,v])=>(
+                {[['Total supply','1,000,000,000'],['Graduation','320,000 NIGHT'],['Trade fee','1%'],['Network',`Midnight ${PUBLIC_NETWORK_LABEL}`]].map(([k,v])=>(
                   <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom: 9 }}>
                     <span style={{ fontSize: 16, color:'var(--text-tertiary)' }}>{k}</span>
                     <span style={{ fontFamily:'var(--mono)', fontSize: 16, color:'var(--text-secondary)' }}>{v}</span>

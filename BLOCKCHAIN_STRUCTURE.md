@@ -9,7 +9,7 @@ night.fun is a bonding curve token launchpad built on [Midnight Network](https:/
 ```
 User launches token → Bonding curve contract deployed
 Users buy/sell on curve → ZK-proven transactions settled on-chain
-Reserve hits 69,000 NIGHT → Token "graduates" (eligible for DEX listing)
+Reserve hits 320,000 NIGHT → Token "graduates" (eligible for DEX listing)
 ```
 
 **Native token:** NIGHT (Midnight's native token for trading and fees)
@@ -249,7 +249,7 @@ Written in **Compact**, Midnight's domain-specific language that compiles to ZK 
 | `buy` | User sends NIGHT, receives tokens minted along the curve |
 | `sell` | User sends tokens, receives NIGHT from the reserve |
 
-**Graduation:** When the bonding curve reserve reaches **69,000 NIGHT**, the token "graduates" and becomes eligible for DEX listing (analogous to pump.fun's Raydium migration at ~$69k market cap).
+**Graduation:** When the bonding curve reserve reaches **320,000 NIGHT** (~$15K), the token "graduates" and becomes eligible for DEX listing (analogous to pump.fun's Raydium migration).
 
 **Transaction lifecycle for a circuit call:**
 
@@ -347,7 +347,7 @@ Railway's `railway.json` or `Dockerfile` should include this flag.
 | **Chain** | Solana (public, transparent) | Midnight (ZK privacy) |
 | **Token standard** | SPL tokens | Compact contracts (ZK circuits) |
 | **Bonding curve** | On-chain program | On-chain Compact contract |
-| **Graduation target** | ~$69k market cap → Raydium | 69,000 NIGHT reserve |
+| **Graduation target** | ~$69k market cap → Raydium | 320,000 NIGHT reserve (~$15K) |
 | **Transaction signing** | Phantom/Solflare sign directly | ZK proving → wallet balance → submit |
 | **Gas/fees** | User pays SOL | Server warm wallet or ProofStation sponsors |
 | **Proving** | N/A (no ZK) | Server-side proof generation (~seconds) |

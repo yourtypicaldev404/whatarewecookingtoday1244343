@@ -38,7 +38,7 @@ export circuit buy(ada_in: Uint<128>, tokens_out: Uint<128>): [] {
   token_reserve = disclose((token_reserve - tokens_out) as Uint<128>);
   total_volume  = disclose((total_volume + ada_in) as Uint<128>);
   tx_count      = disclose((tx_count + 1) as Uint<64>);
-  if (ada_reserve >= 1000000000) { state = CurveState.GRADUATED; }
+  if (ada_reserve >= 320000000000) { state = CurveState.GRADUATED; }
 }
 
 export circuit sell(tokens_in: Uint<128>, ada_out: Uint<128>): [] {

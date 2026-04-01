@@ -1,7 +1,7 @@
 # night.fun
 
 **pump.fun for Midnight Network.**
-Users launch memecoins backed by real Zero Knowledge smart contracts. Each token has a bonding curve — price rises as people buy. When the curve fills (69,000 NIGHT), the token graduates to NorthStar DEX.
+Users launch memecoins backed by real Zero Knowledge smart contracts. Each token has a bonding curve — price rises as people buy. When the curve fills (320,000 NIGHT, ~$15K), the token graduates to NorthStar DEX.
 
 Privacy-first: trades are ZK-verified. Nobody sees your wallet balance or transaction history.
 
@@ -73,7 +73,7 @@ This approach fixes the previous `balanceUnsealedTransaction` hang by ensuring t
 |---------|--------------|
 | Real portfolio | Query Midnight indexer for the connected wallet's ZK token balances — no public API for this yet |
 | Real price chart | Subscribe to indexer WebSocket for per-contract trade events, store OHLCV in Redis |
-| Graduation flow | When `adaReserve >= 69,000 NIGHT`, call contract's `graduate()` circuit and list on NorthStar DEX |
+| Graduation flow | When `adaReserve >= 320,000 NIGHT`, call contract's `graduate()` circuit and list on NorthStar DEX |
 | Real holder tracking | Parse ZK outputs from indexer to count unique holders per token |
 | End-to-end testing | Verify client-side Lace proving flow works on mainnet with Lace wallet |
 | Comment / bump system | Social layer — users bump tokens to the top by posting |
@@ -180,7 +180,7 @@ PORT=3001
 **Bonding Curve Contract** (`contracts/managed/bonding_curve/`)
 - Language: Compact 0.30.0 (pragma 0.22)
 - Circuits: `buy`, `sell`, `getProgress`, `pause`, `unpause`
-- Graduation target: 69,000 NIGHT
+- Graduation target: 320,000 NIGHT
 - Total supply: 1,000,000,000 tokens (6 decimals)
 - Fee: 1% per trade
 - Witnesses: `treasurySecretKey`

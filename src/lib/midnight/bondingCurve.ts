@@ -8,7 +8,7 @@
 
 export const TOTAL_SUPPLY      = 1_000_000_000_000_000n;   // 1B tokens, 6 dec
 export const BURN_AMOUNT       = 1_000_000_000n;            // 1M tokens
-export const GRADUATION_TARGET = 69_000_000_000n;           // 69k NIGHT
+export const GRADUATION_TARGET = 320_000_000_000n;          // 320k NIGHT
 export const VIRTUAL_ADA       = 2_550_000_000n;            // price floor
 export const FEE_BPS           = 100n;
 export const BPS_DENOM         = 10_000n;
