@@ -206,10 +206,23 @@ export async function deployBondingCurveViaWallet(
   wallet: ConnectedAPI,
   onPhase?: (phase: 'proving' | 'signing' | 'submitting') => void,
 ): Promise<{ contractAddress: string; txId: string }> {
-  // Server builds unproven tx + proves it
+  // Get user's shielded keys so the tx is built for their wallet
+  let coinPubKey = '';
+  let encPubKey = '';
+  try {
+    const shielded = await withTimeout(wallet.getShieldedAddresses(), 10_000, 'getShieldedAddresses timeout');
+    const addr = Array.isArray(shielded) ? shielded[0] : shielded;
+    coinPubKey = (addr as any)?.shieldedCoinPublicKey ?? '';
+    encPubKey = (addr as any)?.shieldedEncryptionPublicKey ?? '';
+    console.log('[deploy] got user shielded keys — cpk:', coinPubKey.slice(0, 20) + '...', 'epk:', encPubKey.slice(0, 20) + '...');
+  } catch (e) {
+    console.warn('[deploy] Could not get shielded keys, using server fallback:', e);
+  }
+
+  // Server builds unproven tx + user's wallet proves it
   onPhase?.('proving');
   const { provedTxHex, contractAddress } = await getProvedDeployTx(
-    wallet, params, '', '',
+    wallet, params, coinPubKey, encPubKey,
   );
 
   // User's wallet balances (pays fees) and submits
